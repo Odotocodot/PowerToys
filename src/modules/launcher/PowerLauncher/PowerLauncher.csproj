@@ -74,16 +74,15 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
-    <PackageReference Include="Interop.Microsoft.Office.Interop.OneNote" />
     <PackageReference Include="Mages" />
     <PackageReference Include="LazyCache" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" />
-    <PackageReference Include="ScipBe.Common.Office.OneNote" />
     <PackageReference Include="System.Drawing.Common">
-      <ExcludeAssets>runtime</ExcludeAssets> <!-- Should already be present on .net sdk runtime, so we avoid the conflicting runtime version from nuget -->
+      <ExcludeAssets>runtime</ExcludeAssets>      <!-- Should already be present on .net sdk runtime, so we avoid the conflicting runtime version from nuget -->
     </PackageReference>
+    <PackageReference Include="Odotocodot.OneNote.Linq" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="System.Data.OleDb" />
     <PackageReference Include="System.ServiceProcess.ServiceController" />
@@ -93,7 +92,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="System.Diagnostics.EventLog">
       <!-- This package is a dependency of Microsoft.Extensions.Logging.EventLog, but we need to set it here so we can exclude the assets, so it doesn't conflict with the 8.0.1 dll coming from .NET SDK. -->
-      <ExcludeAssets>runtime</ExcludeAssets> <!-- Should already be present on .net sdk runtime, so we avoid the conflicting runtime version from nuget -->
+      <ExcludeAssets>runtime</ExcludeAssets>      <!-- Should already be present on .net sdk runtime, so we avoid the conflicting runtime version from nuget -->
     </PackageReference>
   </ItemGroup>
 
