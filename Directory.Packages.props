@@ -12,7 +12,7 @@
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.0.230907" />
     <PackageVersion Include="CommunityToolkit.WinUI.Collections " Version="8.0.230907" />
     <PackageVersion Include="CommunityToolkit.WinUI.Converters" Version="8.0.230907" />
-    <PackageVersion Include="CommunityToolkit.WinUI.Extensions" Version="8.0.230907" /> 
+    <PackageVersion Include="CommunityToolkit.WinUI.Extensions" Version="8.0.230907" />
     <PackageVersion Include="CommunityToolkit.WinUI.UI.Controls.DataGrid" Version="7.1.2" />
     <PackageVersion Include="CommunityToolkit.WinUI.UI.Controls.Markdown" Version="7.1.2" />
     <PackageVersion Include="ControlzEx" Version="6.0.0" />
@@ -20,8 +20,8 @@
     <PackageVersion Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0" />
     <PackageVersion Include="HelixToolkit" Version="2.20.2" />
     <PackageVersion Include="HelixToolkit.Core.Wpf" Version="2.20.2" />
+    <PackageVersion Include="Humanizer" Version="2.14.1" />
     <PackageVersion Include="hyjiacan.pinyin4net" Version="4.1.1" />
-    <PackageVersion Include="Interop.Microsoft.Office.Interop.OneNote" Version="1.1.0.2" />
     <PackageVersion Include="LazyCache" Version="2.4.0" />
     <PackageVersion Include="Mages" Version="2.0.1" />
     <PackageVersion Include="Markdig.Signed" Version="0.27.0" />
@@ -52,7 +52,7 @@
     <PackageVersion Include="NLog" Version="5.0.4" />
     <PackageVersion Include="NLog.Extensions.Logging" Version="5.0.4" />
     <PackageVersion Include="NLog.Schema" Version="5.0.4" />
-    <PackageVersion Include="ScipBe.Common.Office.OneNote" Version="3.0.1" />
+    <PackageVersion Include="Odotocodot.OneNote.Linq" Version="1.0.0" />
     <PackageVersion Include="SharpCompress" Version="0.33.0" />
     <PackageVersion Include="StreamJsonRpc" Version="2.14.24" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.507" />

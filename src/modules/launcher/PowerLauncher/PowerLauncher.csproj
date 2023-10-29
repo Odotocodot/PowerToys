@@ -74,14 +74,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.CsWinRT" />
-    <PackageReference Include="Interop.Microsoft.Office.Interop.OneNote" />
     <PackageReference Include="Mages" />
     <PackageReference Include="LazyCache" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" />
     <PackageReference Include="ModernWpfUI" />
-    <PackageReference Include="ScipBe.Common.Office.OneNote" />
+    <PackageReference Include="Odotocodot.OneNote.Linq" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="System.Data.OleDb" />
     <PackageReference Include="System.ServiceProcess.ServiceController" />
