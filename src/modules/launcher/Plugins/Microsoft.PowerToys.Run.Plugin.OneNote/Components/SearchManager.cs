@@ -59,8 +59,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 throw new ArgumentNullException(nameof(query));
             }
 
-            string prefix = query.RawUserQuery.StartsWith(query.ActionKeyword, StringComparison.Ordinal) ? string.Empty : $"{query.ActionKeyword} ";
-
             return new List<Result>
             {
                 new Result
@@ -74,45 +72,45 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 {
                     Title = "View notebook explorer",
                     SubTitle = $"Type \"{Keywords.NotebookExplorer}\" or select this option to search by notebook structure ",
-                    QueryTextDisplay = $"{prefix}{Keywords.NotebookExplorer}",
+                    QueryTextDisplay = $"{Keywords.NotebookExplorer}",
                     IcoPath = IconProvider.Notebook,
                     Score = 2000,
-                    Action = c =>
+                    Action = ResultCreator.ResultAction(() =>
                     {
                         _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.NotebookExplorer}", true);
                         return false;
-                    },
+                    }),
                 },
                 new Result
                 {
                     Title = "See recent pages",
                     SubTitle = $"Type \"{Keywords.RecentPages}\" or select this option to see recently modified pages",
-                    QueryTextDisplay = $"{prefix}{Keywords.RecentPages}",
+                    QueryTextDisplay = $"{Keywords.RecentPages}",
                     IcoPath = IconProvider.Recent,
                     Score = -1000,
-                    Action = c =>
+                    Action = ResultCreator.ResultAction(() =>
                     {
                         _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.RecentPages}", true);
                         return false;
-                    },
+                    }),
                 },
                 new Result
                 {
                     Title = "New quick note",
                     IcoPath = IconProvider.NewPage,
                     Score = -4000,
-                    Action = c =>
+                    Action = ResultCreator.ResultAction(() =>
                     {
                         OneNoteApplication.CreateQuickNote(true);
                         return true;
-                    },
+                    }),
                 },
                 new Result
                 {
                     Title = "Open and sync notebooks",
                     IcoPath = IconProvider.Sync,
                     Score = int.MinValue,
-                    Action = c =>
+                    Action = ResultCreator.ResultAction(() =>
                     {
                         foreach (var notebook in OneNoteApplication.GetNotebooks())
                         {
@@ -126,7 +124,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                           .First()
                                           .OpenItemInOneNote();
                         return true;
-                    },
+                    }),
                 },
             };
         }
@@ -149,7 +147,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     continue;
                 }
 
-                // TODO change string comparison
                 parent = collection.FirstOrDefault(item => item.Name.Equals(searches[i], StringComparison.Ordinal));
                 if (parent == null)
                 {
@@ -378,7 +375,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                      .ToList();
         }
 
-        // TODO fix context menu
         public List<ContextMenuResult> LoadContextMenu(Result selectedResult)
         {
             var results = new List<ContextMenuResult>();
@@ -392,27 +388,31 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     FontFamily = "Segoe MDL2 Assets",
                     AcceleratorKey = Key.Enter,
                     AcceleratorModifiers = ModifierKeys.Shift,
-                    Action = _ =>
+                    Action = ResultCreator.ResultAction(() =>
                     {
-                        OneNoteApplication.SyncItem(item);
+                        item.Sync();
                         item.OpenItemInOneNote();
                         return true;
-                    },
+                    }),
                 });
-                results.Add(new ContextMenuResult
+
+                if (item is not OneNotePage)
                 {
-                    PluginName = Assembly.GetExecutingAssembly().GetName().Name,
-                    Title = "Open in notebook explorer",
-                    Glyph = "\xEC50",
-                    FontFamily = "Segoe MDL2 Assets",
-                    AcceleratorKey = Key.Enter,
-                    AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
-                    Action = _ =>
+                    results.Add(new ContextMenuResult
                     {
-                        _context.API.ChangeQuery(selectedResult.QueryTextDisplay, true);
-                        return false;
-                    },
-                });
+                        PluginName = Assembly.GetExecutingAssembly().GetName().Name,
+                        Title = "Open in notebook explorer",
+                        Glyph = "\xEC50",
+                        FontFamily = "Segoe MDL2 Assets",
+                        AcceleratorKey = Key.Enter,
+                        AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
+                        Action = ResultCreator.ResultAction(() =>
+                        {
+                            _context.API.ChangeQuery(selectedResult.QueryTextDisplay, true);
+                            return false;
+                        }),
+                    });
+                }
             }
 
             return results;

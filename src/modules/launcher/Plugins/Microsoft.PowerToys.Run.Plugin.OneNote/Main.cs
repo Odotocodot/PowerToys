@@ -5,30 +5,29 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Windows.Controls;
-using LazyCache;
 using ManagedCommon;
 using Microsoft.PowerToys.Run.Plugin.OneNote.Components;
 using Microsoft.PowerToys.Run.Plugin.OneNote.Properties;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Odotocodot.OneNote.Linq;
 using Wox.Plugin;
+using Timer = System.Timers.Timer;
 
 namespace Microsoft.PowerToys.Run.Plugin.OneNote
 {
     /// <summary>
     /// A power launcher plugin to search across time zones.
     /// </summary>
-    public class Main : IPlugin, IDelayedExecutionPlugin, IPluginI18n, ISettingProvider, IContextMenu
+    public class Main : IPlugin, IDelayedExecutionPlugin, IPluginI18n, ISettingProvider, IContextMenu, IDisposable
     {
+        private readonly Timer _comObjectTimeout = new();
+
+        private readonly OneNoteSettings _settings = new();
+
         /// <summary>
         /// A value indicating if the OneNote interop library was able to successfully initialize.
         /// </summary>
         private bool _oneNoteInstalled;
-
-        /// <summary>
-        /// LazyCache CachingService instance to speed up repeated queries.
-        /// </summary>
-        private CachingService? _cache;
 
         /// <summary>
         /// The initial context for this plugin (contains API and meta-data)
@@ -42,7 +41,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
 
         private SearchManager? _searchManager;
 
-        private Lazy<OneNoteSettings> _settings = new();
+        private bool _disposed;
 
         /// <summary>
         /// Gets the localized name.
@@ -59,9 +58,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         /// </summary>
         public static string PluginID => "0778F0C264114FEC8A3DF59447CF0A74";
 
-        public IEnumerable<PluginAdditionalOption> AdditionalOptions => Settings.AdditionalOptions;
-
-        internal OneNoteSettings Settings => _settings.Value;
+        public IEnumerable<PluginAdditionalOption> AdditionalOptions => _settings.AdditionalOptions;
 
         /// <summary>
         /// Initialize the plugin with the given <see cref="PluginInitContext"/>
@@ -76,11 +73,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
                 OneNoteApplication.InitComObject();
                 _oneNoteInstalled = OneNoteApplication.HasComObject;
                 OneNoteApplication.ReleaseComObject();
-
-                if (_oneNoteInstalled)
-                {
-                    _cache = GetCache();
-                }
             }
             catch (COMException)
             {
@@ -88,18 +80,15 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
                 _oneNoteInstalled = false;
             }
 
-            var resultCreator = new ResultCreator(context, Settings);
-            _searchManager = new SearchManager(context, Settings, resultCreator);
+            _comObjectTimeout.Elapsed += ComObjectTimer_Elapsed;
+            _comObjectTimeout.AutoReset = false;
+            _comObjectTimeout.Enabled = false;
+
+            var resultCreator = new ResultCreator(context, _settings);
+            _searchManager = new SearchManager(context, _settings, resultCreator);
 
             _context.API.ThemeChanged += OnThemeChanged;
             UpdateIconPath(_context.API.GetCurrentTheme());
-        }
-
-        private CachingService GetCache()
-        {
-            var cache = new CachingService();
-            cache.DefaultCachePolicy.DefaultCacheDurationSeconds = (int)TimeSpan.FromDays(1).TotalSeconds;
-            return cache;
         }
 
         /// <summary>
@@ -114,16 +103,24 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
                 return ResultCreator.OneNoteNotInstalled();
             }
 
-            if (string.IsNullOrWhiteSpace(query?.Search))
+            if (_searchManager is null)
             {
-                return _searchManager!.EmptyQuery(query);
+                return new List<Result>();
             }
 
-            _cache ??= GetCache();
+            if (string.IsNullOrWhiteSpace(query?.Search))
+            {
+                return _searchManager.EmptyQuery(query);
+            }
 
-            // If there's cached results for this query, return immediately, otherwise wait for delayedExecution.
-            var results = _cache.Get<List<Result>>(query.Search);
-            return results ?? Query(query, false);
+            // If a COM Object has been acquired results return faster
+            if (OneNoteApplication.HasComObject)
+            {
+                ResetTimeout();
+                return _searchManager.Query(query);
+            }
+
+            return new List<Result>();
         }
 
         /// <summary>
@@ -139,15 +136,19 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
                 return ResultCreator.OneNoteNotInstalled();
             }
 
-            if (string.IsNullOrWhiteSpace(query?.Search))
+            if (_searchManager is null)
             {
-                return _searchManager!.EmptyQuery(query);
+                return new List<Result>();
             }
 
-            _cache ??= GetCache();
+            if (string.IsNullOrWhiteSpace(query?.Search))
+            {
+                return _searchManager.EmptyQuery(query);
+            }
 
-            // Get results from cache if they already exist for this query, otherwise query OneNote. Results will be cached for 1 day.
-            return _cache.GetOrAdd(query.Search, () => _searchManager!.Query(query));
+            ResetTimeout();
+
+            return _searchManager.Query(query);
         }
 
         /// <summary>
@@ -174,6 +175,17 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             _iconPath = "Images/temp.svg";
         }
 
+        private void ComObjectTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            OneNoteApplication.ReleaseComObject();
+        }
+
+        private void ResetTimeout()
+        {
+            _comObjectTimeout.Interval = _settings.ComObjectTimeout;
+            _comObjectTimeout.Enabled = true;
+        }
+
         public List<ContextMenuResult> LoadContextMenus(Result selectedResult)
         {
             return _searchManager!.LoadContextMenu(selectedResult);
@@ -186,7 +198,28 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
 
         public void UpdateSettings(PowerLauncherPluginSettings settings)
         {
-            Settings.UpdateSettings(settings);
+            _settings.UpdateSettings(settings);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _comObjectTimeout?.Dispose();
+                    OneNoteApplication.ReleaseComObject();
+                }
+
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }
