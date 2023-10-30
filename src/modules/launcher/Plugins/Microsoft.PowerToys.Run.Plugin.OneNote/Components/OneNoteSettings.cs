@@ -51,11 +51,11 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 PluginOptionType = PluginAdditionalOption.AdditionalOptionType.Numberbox,
                 DisplayLabel = "Test",
                 DisplayDescription = "Test",
-                NumberValue = 10,
-                NumberBoxMin = 1,
-                NumberBoxMax = 120,
-                NumberBoxSmallChange = 0.100d,
-                NumberBoxLargeChange = 1,
+                NumberValue = 10000,
+                NumberBoxMin = 1000,
+                NumberBoxMax = 120000,
+                NumberBoxSmallChange = 1000,
+                NumberBoxLargeChange = 50000,
             },
         };
 

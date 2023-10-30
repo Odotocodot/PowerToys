@@ -57,7 +57,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             string title = GetTitle(item, highlightData);
             string toolTip = string.Empty;
             string subTitle = GetNicePath(item);
-            string autoCompleteText = $"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.NotebookExplorer}{GetNicePath(item, Keywords.NotebookExplorerSeparator)}";
+            string queryTextDisplay = $"{Keywords.NotebookExplorer}{GetNicePath(item, Keywords.NotebookExplorerSeparator)}";
 
             switch (item)
             {
@@ -68,7 +68,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         $"Sections Groups:\t{notebook.SectionGroups.Count()}";
 
                     subTitle = string.Empty;
-                    autoCompleteText += Keywords.NotebookExplorerSeparator;
+                    queryTextDisplay += Keywords.NotebookExplorerSeparator;
                     break;
                 case OneNoteSectionGroup sectionGroup:
                     toolTip =
@@ -77,7 +77,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         $"Sections:\t\t{sectionGroup.Sections.Count()}\n" +
                         $"Sections Groups:\t{sectionGroup.SectionGroups.Count()}";
 
-                    autoCompleteText += Keywords.NotebookExplorerSeparator;
+                    queryTextDisplay += Keywords.NotebookExplorerSeparator;
                     break;
                 case OneNoteSection section:
                     if (section.Encrypted)
@@ -99,9 +99,14 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         $"Last Modified:\t{section.LastModified}\n" +
                         $"Pages:\t\t{section.Pages.Count()}";
 
-                    autoCompleteText += Keywords.NotebookExplorerSeparator;
+                    queryTextDisplay += Keywords.NotebookExplorerSeparator;
                     break;
                 case OneNotePage page:
+                    if (!actionIsAutoComplete)
+                    {
+                        queryTextDisplay = string.Empty;
+                    }
+
                     actionIsAutoComplete = false;
                     subTitle = subTitle.Remove(subTitle.Length - (page.Name.Length + PathSeparator.Length));
                     toolTip =
@@ -116,23 +121,23 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 Title = title,
                 ToolTipData = new ToolTipData(item.Name, toolTip),
                 TitleHighlightData = highlightData,
-                QueryTextDisplay = actionIsAutoComplete ? autoCompleteText : item.Name,
+                QueryTextDisplay = queryTextDisplay,
                 SubTitle = subTitle,
                 Score = score,
                 IcoPath = IconProvider.GetIcon(item),
                 ContextData = item,
-                Action = c =>
+                Action = ResultAction(() =>
                 {
                     if (actionIsAutoComplete)
                     {
-                        _context.API.ChangeQuery(autoCompleteText, true);
+                        _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {queryTextDisplay}", true);
                         return false;
                     }
 
-                    OneNoteApplication.SyncItem(item);
+                    item.Sync();
                     item.OpenItemInOneNote();
                     return true;
-                },
+                }),
             };
         }
 
@@ -144,11 +149,11 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 Title = $"Create page: \"{pageTitle}\"",
                 SubTitle = $"Path: {GetNicePath(section)}{PathSeparator}{pageTitle}",
                 IcoPath = IconProvider.NewPage,
-                Action = c =>
+                Action = ResultAction(() =>
                 {
                     OneNoteApplication.CreatePage(section, pageTitle, true);
                     return true;
-                },
+                }),
             };
         }
 
@@ -164,28 +169,17 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         ? $"Path: {GetNicePath(parent)}{PathSeparator}{sectionTitle}"
                         : $"Section names cannot contain: {string.Join(' ', OneNoteApplication.InvalidSectionChars)}",
                 IcoPath = IconProvider.NewSection,
-                Action = c =>
+                Action = ResultAction(() =>
                 {
                     if (!validTitle)
                     {
                         return false;
                     }
 
-                    switch (parent)
-                    {
-                        case OneNoteNotebook notebook:
-                            OneNoteApplication.CreateSection(notebook, sectionTitle, true);
-                            break;
-                        case OneNoteSectionGroup sectionGroup:
-                            OneNoteApplication.CreateSection(sectionGroup, sectionTitle, true);
-                            break;
-                        default:
-                            break;
-                    }
-
+                    switch (parent) { case OneNoteNotebook notebook: OneNoteApplication.CreateSection(notebook, sectionTitle, true); break; case OneNoteSectionGroup sectionGroup: OneNoteApplication.CreateSection(sectionGroup, sectionTitle, true); break; default: break; }
                     _context.API.ChangeQuery(_context.CurrentPluginMetadata.ActionKeyword, true);
                     return true;
-                },
+                }),
             };
         }
 
@@ -201,28 +195,17 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     ? $"Path: {GetNicePath(parent)}{PathSeparator}{sectionGroupTitle}"
                     : $"Section group names cannot contain: {string.Join(' ', OneNoteApplication.InvalidSectionGroupChars)}",
                 IcoPath = IconProvider.NewSectionGroup,
-                Action = c =>
+                Action = ResultAction(() =>
                 {
                     if (!validTitle)
                     {
                         return false;
                     }
 
-                    switch (parent)
-                    {
-                        case OneNoteNotebook notebook:
-                            OneNoteApplication.CreateSectionGroup(notebook, sectionGroupTitle, true);
-                            break;
-                        case OneNoteSectionGroup sectionGroup:
-                            OneNoteApplication.CreateSectionGroup(sectionGroup, sectionGroupTitle, true);
-                            break;
-                        default:
-                            break;
-                    }
-
+                    switch (parent) { case OneNoteNotebook notebook: OneNoteApplication.CreateSectionGroup(notebook, sectionGroupTitle, true); break; case OneNoteSectionGroup sectionGroup: OneNoteApplication.CreateSectionGroup(sectionGroup, sectionGroupTitle, true); break; default: break; }
                     _context.API.ChangeQuery(_context.CurrentPluginMetadata.ActionKeyword, true);
                     return true;
-                },
+                }),
             };
         }
 
@@ -238,7 +221,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     ? $"Location: {OneNoteApplication.GetDefaultNotebookLocation()}"
                     : $"Notebook names cannot contain: {string.Join(' ', OneNoteApplication.InvalidNotebookChars)}",
                 IcoPath = IconProvider.NewNotebook,
-                Action = c =>
+                Action = ResultAction(() =>
                 {
                     if (!validTitle)
                     {
@@ -246,10 +229,9 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     }
 
                     OneNoteApplication.CreateNotebook(notebookTitle, true);
-
                     _context.API.ChangeQuery(_context.CurrentPluginMetadata.ActionKeyword, true);
                     return true;
-                },
+                }),
             };
         }
 
@@ -264,7 +246,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             "The first character of the search must be a letter or a digit",
             IconProvider.Warning);
 
-        // TODO: Context menu show be links to download OneNote
+        // TODO: Context menu show be links to download OneNote -> https://apps.microsoft.com/store/detail/XPFFZHVGQWWLHB?ocid=pdpshare
         internal static List<Result> OneNoteNotInstalled() => SingleResult(
             "OneNote is not installed",
             "Please install OneNote to use this plugin",
@@ -285,14 +267,14 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         internal static Func<ActionContext, bool> ResultAction(Func<bool> func)
         {
-            return c =>
+            return _ =>
             {
                 bool result = func();
 
-                // Closing the Run window, so need to release the Com Object
+                // Closing the Run window, so can release the COM Object
                 if (result)
                 {
-                    OneNoteApplication.ReleaseComObject();
+                    Task.Run(OneNoteApplication.ReleaseComObject);
                 }
 
                 return result;
