@@ -19,6 +19,10 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
         // A timeout value is required as there currently no way to know if the Run window is visible.
         internal double ComObjectTimeout { get; private set; }
 
+        internal bool ColoredIcons { get; private set; }
+
+        /*internal event EventHandler<OneNoteSettings>? SettingsChanged;*/
+
         public IEnumerable<PluginAdditionalOption> AdditionalOptions => new List<PluginAdditionalOption>()
         {
             new PluginAdditionalOption()
@@ -57,6 +61,14 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 NumberBoxSmallChange = 1000,
                 NumberBoxLargeChange = 50000,
             },
+            new PluginAdditionalOption()
+            {
+                Key = nameof(ColoredIcons),
+                PluginOptionType = PluginAdditionalOption.AdditionalOptionType.Checkbox,
+                DisplayLabel = string.Empty,
+                DisplayDescription = string.Empty,
+                Value = true,
+            },
         };
 
         public Control CreateSettingPanel()
@@ -77,6 +89,8 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
             var comObjectTimeout = settings.AdditionalOptions.FirstOrDefault(x => x.Key == nameof(ComObjectTimeout))?.NumberValue;
             ComObjectTimeout = comObjectTimeout ?? AdditionalOptions.First(x => x.Key == nameof(ComObjectTimeout)).NumberValue;
+
+            ColoredIcons = GetBoolSettingOrDefault(settings, nameof(ColoredIcons));
         }
 
         private bool GetBoolSettingOrDefault(PowerLauncherPluginSettings settings, string settingName)

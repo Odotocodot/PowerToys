@@ -2,8 +2,6 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Reflection;
-using System.Windows.Input;
 using Odotocodot.OneNote.Linq;
 using Wox.Infrastructure;
 using Wox.Plugin;
@@ -14,13 +12,15 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
     {
         private readonly PluginInitContext _context;
         private readonly OneNoteSettings _settings;
+        private readonly IconProvider _iconProvider;
         private readonly ResultCreator _resultCreator;
 
-        internal SearchManager(PluginInitContext context, OneNoteSettings settings, ResultCreator resultCreator)
+        internal SearchManager(PluginInitContext context, OneNoteSettings settings, IconProvider iconProvider, ResultCreator resultCreator)
         {
             _context = context;
             _settings = settings;
             _resultCreator = resultCreator;
+            _iconProvider = iconProvider;
         }
 
         internal List<Result> Query(Query query)
@@ -65,7 +65,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 {
                     Title = "Search OneNote pages",
                     QueryTextDisplay = string.Empty,
-                    IcoPath = IconProvider.Logo,
+                    IcoPath = _iconProvider.Search,
                     Score = 5000,
                 },
                 new Result
@@ -73,7 +73,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     Title = "View notebook explorer",
                     SubTitle = $"Type \"{Keywords.NotebookExplorer}\" or select this option to search by notebook structure ",
                     QueryTextDisplay = $"{Keywords.NotebookExplorer}",
-                    IcoPath = IconProvider.Notebook,
+                    IcoPath = _iconProvider.NotebookExplorer,
                     Score = 2000,
                     Action = ResultCreator.ResultAction(() =>
                     {
@@ -86,7 +86,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     Title = "See recent pages",
                     SubTitle = $"Type \"{Keywords.RecentPages}\" or select this option to see recently modified pages",
                     QueryTextDisplay = $"{Keywords.RecentPages}",
-                    IcoPath = IconProvider.Recent,
+                    IcoPath = _iconProvider.Recent,
                     Score = -1000,
                     Action = ResultCreator.ResultAction(() =>
                     {
@@ -97,7 +97,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 new Result
                 {
                     Title = "New quick note",
-                    IcoPath = IconProvider.NewPage,
+                    IcoPath = _iconProvider.QuickNote,
                     Score = -4000,
                     Action = ResultCreator.ResultAction(() =>
                     {
@@ -108,7 +108,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 new Result
                 {
                     Title = "Open and sync notebooks",
-                    IcoPath = IconProvider.Sync,
+                    IcoPath = _iconProvider.Sync,
                     Score = int.MinValue,
                     Action = ResultCreator.ResultAction(() =>
                     {
@@ -224,14 +224,14 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     case OneNoteNotebook:
                     case OneNoteSectionGroup:
                         // Can create section/section group
-                        results.Add(NoItemsInCollectionResult("section", IconProvider.NewSection, "(unencrypted) section"));
-                        results.Add(NoItemsInCollectionResult("section group", IconProvider.NewSectionGroup));
+                        results.Add(NoItemsInCollectionResult("section", _iconProvider.NewSection, "(unencrypted) section"));
+                        results.Add(NoItemsInCollectionResult("section group", _iconProvider.NewSectionGroup));
                         break;
                     case OneNoteSection section:
                         // Can create page
                         if (!section.Locked)
                         {
-                            results.Add(NoItemsInCollectionResult("page", IconProvider.NewPage));
+                            results.Add(NoItemsInCollectionResult("page", _iconProvider.NewPage));
                         }
 
                         break;
@@ -257,12 +257,12 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
         {
             if (query.Length == Keywords.ScopedSearch.Length)
             {
-                return ResultCreator.NoMatchesFound();
+                return _resultCreator.NoMatchesFound();
             }
 
             if (!char.IsLetterOrDigit(query[Keywords.ScopedSearch.Length]))
             {
-                return ResultCreator.InvalidQuery();
+                return _resultCreator.InvalidQuery();
             }
 
             string currentSearch = query[Keywords.TitleSearch.Length..];
@@ -274,7 +274,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
             if (!results.Any())
             {
-                results = ResultCreator.NoMatchesFound();
+                results = _resultCreator.NoMatchesFound();
             }
 
             return results;
@@ -302,7 +302,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     case OneNoteSection section:
                         if (!section.Locked)
                         {
-                            results.Add(ResultCreator.CreateNewPageResult(query, section));
+                            results.Add(_resultCreator.CreateNewPageResult(query, section));
                         }
 
                         break;
@@ -317,20 +317,20 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             // Check for invalid start of query i.e. symbols
             if (!char.IsLetterOrDigit(query[0]))
             {
-                return ResultCreator.InvalidQuery();
+                return _resultCreator.InvalidQuery();
             }
 
             var results = OneNoteApplication.FindPages(query)
                                             .Select(pg => _resultCreator.CreatePageResult(pg, query));
 
-            return results.Any() ? results.ToList() : ResultCreator.NoMatchesFound();
+            return results.Any() ? results.ToList() : _resultCreator.NoMatchesFound();
         }
 
         private List<Result> TitleSearch(string query, IEnumerable<IOneNoteItem> currentCollection, IOneNoteItem? parent = null)
         {
             if (query.Length == Keywords.TitleSearch.Length && parent == null)
             {
-                return ResultCreator.SingleResult($"Now searching by title.", null, IconProvider.Search);
+                return ResultCreator.SingleResult($"Now searching by title.", null, _iconProvider.Search);
             }
 
             List<int>? highlightData = null;
@@ -344,7 +344,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
             if (!results.Any())
             {
-                results = ResultCreator.NoMatchesFound();
+                results = _resultCreator.NoMatchesFound();
             }
 
             return results;
@@ -369,53 +369,10 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                      {
                                          Result result = _resultCreator.CreatePageResult(pg);
                                          result.SubTitle = $"{GetLastEdited(DateTime.Now - pg.LastModified)}\t{result.SubTitle}";
-                                         result.IcoPath = IconProvider.RecentPage;
+                                         result.IcoPath = _iconProvider.Page;
                                          return result;
                                      })
                                      .ToList();
-        }
-
-        public List<ContextMenuResult> LoadContextMenu(Result selectedResult)
-        {
-            var results = new List<ContextMenuResult>();
-            if (selectedResult.ContextData is IOneNoteItem item)
-            {
-                results.Add(new ContextMenuResult
-                {
-                    PluginName = Assembly.GetExecutingAssembly().GetName().Name,
-                    Title = "Open and sync",
-                    Glyph = "\xE8A7",
-                    FontFamily = "Segoe MDL2 Assets",
-                    AcceleratorKey = Key.Enter,
-                    AcceleratorModifiers = ModifierKeys.Shift,
-                    Action = ResultCreator.ResultAction(() =>
-                    {
-                        item.Sync();
-                        item.OpenItemInOneNote();
-                        return true;
-                    }),
-                });
-
-                if (item is not OneNotePage)
-                {
-                    results.Add(new ContextMenuResult
-                    {
-                        PluginName = Assembly.GetExecutingAssembly().GetName().Name,
-                        Title = "Open in notebook explorer",
-                        Glyph = "\xEC50",
-                        FontFamily = "Segoe MDL2 Assets",
-                        AcceleratorKey = Key.Enter,
-                        AcceleratorModifiers = ModifierKeys.Control | ModifierKeys.Shift,
-                        Action = ResultCreator.ResultAction(() =>
-                        {
-                            _context.API.ChangeQuery(selectedResult.QueryTextDisplay, true);
-                            return false;
-                        }),
-                    });
-                }
-            }
-
-            return results;
         }
 
         private static string GetLastEdited(TimeSpan diff)
