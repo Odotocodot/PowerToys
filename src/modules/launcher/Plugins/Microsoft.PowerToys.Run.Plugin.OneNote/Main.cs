@@ -41,6 +41,8 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
 
         private SearchManager? _searchManager;
 
+        private ResultCreator? _resultCreator;
+
         private bool _disposed;
 
         /// <summary>
@@ -84,8 +86,9 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             _comObjectTimeout.AutoReset = false;
             _comObjectTimeout.Enabled = false;
 
-            var resultCreator = new ResultCreator(context, _settings);
-            _searchManager = new SearchManager(context, _settings, resultCreator);
+            var iconProvider = new IconProvider(_context, _settings);
+            _resultCreator = new ResultCreator(_context, _settings, iconProvider);
+            _searchManager = new SearchManager(_context, _settings, iconProvider, _resultCreator);
 
             _context.API.ThemeChanged += OnThemeChanged;
             UpdateIconPath(_context.API.GetCurrentTheme());
@@ -100,7 +103,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         {
             if (!_oneNoteInstalled)
             {
-                return ResultCreator.OneNoteNotInstalled();
+                return _resultCreator is null ? new List<Result>() : _resultCreator.OneNoteNotInstalled();
             }
 
             if (_searchManager is null)
@@ -133,7 +136,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         {
             if (!_oneNoteInstalled)
             {
-                return ResultCreator.OneNoteNotInstalled();
+                return _resultCreator is null ? new List<Result>() : _resultCreator.OneNoteNotInstalled();
             }
 
             if (_searchManager is null)
@@ -144,6 +147,11 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             if (string.IsNullOrWhiteSpace(query?.Search))
             {
                 return _searchManager.EmptyQuery(query);
+            }
+
+            if (OneNoteApplication.HasComObject)
+            {
+                return new List<Result>();
             }
 
             ResetTimeout();
@@ -188,7 +196,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
 
         public List<ContextMenuResult> LoadContextMenus(Result selectedResult)
         {
-            return _searchManager!.LoadContextMenu(selectedResult);
+            return _resultCreator is null ? new List<ContextMenuResult>() : _resultCreator.LoadContextMenu(selectedResult);
         }
 
         public Control CreateSettingPanel()
@@ -207,6 +215,11 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             {
                 if (disposing)
                 {
+                    if (_context != null && _context.API != null)
+                    {
+                        _context.API.ThemeChanged -= OnThemeChanged;
+                    }
+
                     _comObjectTimeout?.Dispose();
                     OneNoteApplication.ReleaseComObject();
                 }
