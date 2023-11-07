@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="256px" height="256px" viewBox="0 0 256 256" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <path d="M256 0L256 0L256 256L0 256L0 0L256 0Z" id="path_1" />
+    <clipPath id="clip_1">
+      <use xlink:href="#path_1" clip-rule="evenodd" fill-rule="evenodd" />
+    </clipPath>
+  </defs>
+  <g id="notebook.default" clip-path="url(#clip_1)">
+    <path d="M256 0L256 0L256 256L0 256L0 0L256 0Z" id="notebook.default" fill="none" stroke="none" />
+    <path d="M216 16C216 7.16224 208.838 0 200 0L16 0C7.16224 0 0 7.16224 0 16L0 240C0 248.838 7.16224 256 16 256L200 256C208.838 256 216 248.838 216 240L216 16ZM168 56C168 51.5811 164.419 48 160 48L56 48C51.5811 48 48 51.5811 48 56L48 88C48 92.4189 51.5811 96 56 96L160 96C164.419 96 168 92.4189 168 88L168 56Z" id="Rectangle-Difference" fill="#FFFFFF" fill-rule="evenodd" stroke="none" />
+    <path d="M248 20C252.419 20 256 23.5811 256 28L256 68L224 68L224 20L248 20Z" id="Rectangle-3" fill="#FFFFFF" stroke="none" />
+    <path d="M224 76L256 76L256 124L224 124L224 76Z" id="Rectangle-4" fill="#FFFFFF" fill-rule="evenodd" stroke="none" />
+    <path d="M224 132L256 132L256 180L224 180L224 132Z" id="Rectangle-6" fill="#FFFFFF" fill-rule="evenodd" stroke="none" />
+    <path d="M256 188L256 188L256 228C256 232.419 252.419 236 248 236L224 236L224 188L256 188Z" id="Rectangle-5" fill="#FFFFFF" stroke="none" />
+  </g>
+</svg>
