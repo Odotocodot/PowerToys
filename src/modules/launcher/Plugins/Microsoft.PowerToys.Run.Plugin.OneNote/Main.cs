@@ -10,6 +10,7 @@ using Microsoft.PowerToys.Run.Plugin.OneNote.Components;
 using Microsoft.PowerToys.Run.Plugin.OneNote.Properties;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Odotocodot.OneNote.Linq;
+using Wox.Infrastructure.Storage;
 using Wox.Plugin;
 using Timer = System.Timers.Timer;
 
@@ -34,13 +35,8 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         /// </summary>
         private PluginInitContext? _context;
 
-        /// <summary>
-        /// The path to the icon for each result
-        /// </summary>
-        private string? _iconPath;
-
         private SearchManager? _searchManager;
-
+        private IconProvider? _iconProvider;
         private ResultCreator? _resultCreator;
 
         private bool _disposed;
@@ -69,7 +65,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         public void Init(PluginInitContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
-
             try
             {
                 OneNoteApplication.InitComObject();
@@ -86,12 +81,9 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             _comObjectTimeout.AutoReset = false;
             _comObjectTimeout.Enabled = false;
 
-            var iconProvider = new IconProvider(_context, _settings);
-            _resultCreator = new ResultCreator(_context, _settings, iconProvider);
-            _searchManager = new SearchManager(_context, _settings, iconProvider, _resultCreator);
-
-            _context.API.ThemeChanged += OnThemeChanged;
-            UpdateIconPath(_context.API.GetCurrentTheme());
+            _iconProvider = new IconProvider(_context, _settings);
+            _resultCreator = new ResultCreator(_context, _settings, _iconProvider);
+            _searchManager = new SearchManager(_context, _settings, _iconProvider, _resultCreator);
         }
 
         /// <summary>
@@ -171,18 +163,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         /// <returns>A translated plugin description.</returns>
         public string GetTranslatedPluginDescription() => Resources.PluginDescription;
 
-        private void OnThemeChanged(Theme currentTheme, Theme newTheme)
-        {
-            UpdateIconPath(newTheme);
-        }
-
-        [MemberNotNull(nameof(_iconPath))]
-        private void UpdateIconPath(Theme theme)
-        {
-            _iconPath = theme == Theme.Light || theme == Theme.HighContrastWhite ? "Images/oneNote.light.png" : "Images/oneNote.dark.png";
-            _iconPath = "Images/temp.svg";
-        }
-
         private void ComObjectTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             OneNoteApplication.ReleaseComObject();
@@ -215,11 +195,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             {
                 if (disposing)
                 {
-                    if (_context != null && _context.API != null)
-                    {
-                        _context.API.ThemeChanged -= OnThemeChanged;
-                    }
-
+                    _iconProvider?.Cleanup();
                     _comObjectTimeout?.Dispose();
                     OneNoteApplication.ReleaseComObject();
                 }

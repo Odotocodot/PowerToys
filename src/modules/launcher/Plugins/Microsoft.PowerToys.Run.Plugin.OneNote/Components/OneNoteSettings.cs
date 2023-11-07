@@ -10,6 +10,8 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 {
     public class OneNoteSettings : ISettingProvider
     {
+        private bool coloredIcons;
+
         internal bool ShowUnreadItems { get; private set; }
 
         internal bool ShowEncryptedSections { get; private set; }
@@ -19,9 +21,17 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
         // A timeout value is required as there currently no way to know if the Run window is visible.
         internal double ComObjectTimeout { get; private set; }
 
-        internal bool ColoredIcons { get; private set; }
+        internal bool ColoredIcons
+        {
+            get => coloredIcons;
+            private set
+            {
+                coloredIcons = value;
+                ColoredIconSettingChanged?.Invoke(this, value);
+            }
+        }
 
-        /*internal event EventHandler<OneNoteSettings>? SettingsChanged;*/
+        internal event EventHandler<bool>? ColoredIconSettingChanged;
 
         public IEnumerable<PluginAdditionalOption> AdditionalOptions => new List<PluginAdditionalOption>()
         {
