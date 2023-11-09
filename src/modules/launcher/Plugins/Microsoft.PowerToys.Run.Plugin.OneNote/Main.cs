@@ -2,15 +2,12 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Windows.Controls;
-using ManagedCommon;
 using Microsoft.PowerToys.Run.Plugin.OneNote.Components;
 using Microsoft.PowerToys.Run.Plugin.OneNote.Properties;
 using Microsoft.PowerToys.Settings.UI.Library;
 using Odotocodot.OneNote.Linq;
-using Wox.Infrastructure.Storage;
 using Wox.Plugin;
 using Timer = System.Timers.Timer;
 

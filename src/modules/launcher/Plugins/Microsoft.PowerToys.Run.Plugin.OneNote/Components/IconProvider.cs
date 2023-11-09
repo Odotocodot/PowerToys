@@ -4,11 +4,13 @@
 
 using System.Collections.Concurrent;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
-using System.Xml;
-using System.Xml.Linq;
+using System.Runtime.InteropServices;
+using System.Windows.Media.Imaging;
 using ManagedCommon;
 using Odotocodot.OneNote.Linq;
+using Wox.Infrastructure.Image;
 using Wox.Plugin;
 using Wox.Plugin.Logger;
 
@@ -18,8 +20,9 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
     {
         private readonly PluginInitContext _context;
         private readonly OneNoteSettings _settings;
-        private readonly string _generatedIconsDirectory;
-        private readonly ConcurrentDictionary<string, string> _coloredImageCached = new();
+        private readonly string _imagesDirectory;
+        private readonly string _generatedImagesDirectory;
+        private readonly ConcurrentDictionary<string, BitmapSource> _imageCache = new();
 
         private bool _deleteColoredIconsOnCleanup;
 
@@ -54,13 +57,14 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             _settings.ColoredIconSettingChanged += OnColoredIconSettingChanged;
             _context.API.ThemeChanged += OnThemeChanged;
 
-            _generatedIconsDirectory = $"{_context.CurrentPluginMetadata.PluginDirectory}/Images/Generated/";
+            _imagesDirectory = $"{_context.CurrentPluginMetadata.PluginDirectory}/Images/";
+            _generatedImagesDirectory = $"{_context.CurrentPluginMetadata.PluginDirectory}/Images/Generated/";
 
-            Directory.CreateDirectory(_generatedIconsDirectory);
+            Directory.CreateDirectory(_generatedImagesDirectory);
 
-            foreach (var icon in Directory.EnumerateFiles(_generatedIconsDirectory))
+            foreach (var imagePath in Directory.EnumerateFiles(_generatedImagesDirectory))
             {
-                _coloredImageCached.TryAdd(Path.GetFileNameWithoutExtension(icon), icon);
+                _imageCache.TryAdd(Path.GetFileNameWithoutExtension(imagePath), Path2Bitmap(imagePath));
             }
 
             UpdateTheme(_context.API.GetCurrentTheme());
@@ -74,65 +78,100 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         private string GetIconType(bool hasColoredVersion = false) => hasColoredVersion && _settings.ColoredIcons ? "color" : _theme;
 
-        private string TryGetColoredIcon(string itemType, Color? itemColor)
+        internal System.Windows.Media.ImageSource GetIcon(IOneNoteItem item)
         {
-            if (itemColor is null || !_settings.ColoredIcons)
+            string key;
+            switch (item)
             {
-                return $"Images/{itemType}.{_theme}.png";
+                case OneNoteNotebook notebook:
+                    if (!_settings.ColoredIcons || notebook.Color is null)
+                    {
+                        key = $"{nameof(notebook)}.{_theme}";
+                        break;
+                    }
+                    else
+                    {
+                        return GetColoredIcon(nameof(notebook), notebook.Color.Value);
+                    }
+
+                case OneNoteSectionGroup sectionGroup:
+                    key = sectionGroup.IsRecycleBin ? $"recycle_bin.{_theme}" : $"section_group.{GetIconType(true)}";
+                    break;
+
+                case OneNoteSection section:
+                    if (!_settings.ColoredIcons || section.Color is null)
+                    {
+                        key = $"{nameof(section)}.{_theme}";
+                        break;
+                    }
+                    else
+                    {
+                        return GetColoredIcon(nameof(section), section.Color.Value);
+                    }
+
+                case OneNotePage:
+                    key = Path.GetFileNameWithoutExtension(Page);
+                    break;
+
+                default:
+                    throw new NotImplementedException();
             }
 
-            var color = ColorToHex(itemColor.Value);
-            var key = $"{itemType}.{color}";
-
-            return _coloredImageCached.GetOrAdd(key, key =>
-            {
-                // Get base image
-                using var reader = XmlReader.Create($"{_context.CurrentPluginMetadata.PluginDirectory}/Images/{itemType}.svg");
-                var doc = XDocument.Load(reader);
-                var attributes = doc.Root!.Elements()
-                                          .Skip(1)
-                                          .Elements()
-                                          .Skip(1)
-                                          .Select(x => x.Attribute("fill"));
-
-                // Change color
-                foreach (var attribute in attributes)
-                {
-                    attribute!.Value = color;
-                }
-
-                var filePath = $"{_generatedIconsDirectory}{key}.svg";
-                doc.Save(filePath);
-                reader.Dispose();
-                return filePath;
-            });
-
-            static string ColorToHex(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+            return _imageCache.GetOrAdd(key, key => Path2Bitmap($"{_imagesDirectory}{key}.png"));
         }
 
-        internal string GetIcon(IOneNoteItem item) => item switch
+        private BitmapSource GetColoredIcon(string itemType, Color itemColor)
         {
-            OneNoteNotebook notebook => TryGetColoredIcon(nameof(notebook), notebook.Color),
-            OneNoteSectionGroup sectionGroup => sectionGroup.IsRecycleBin ? $"Images/recycleBin.{_theme}.png" : $"Images/section_group.{GetIconType(true)}.png",
-            OneNoteSection section => TryGetColoredIcon(nameof(section), section.Color),
-            OneNotePage => Page,
-            _ => string.Empty,
-        };
+            var key = $"{itemType}.{itemColor.ToArgb()}";
+
+            return _imageCache.GetOrAdd(key, key =>
+            {
+                var color = itemColor;
+                using var bitmap = new Bitmap($"{_imagesDirectory}{itemType}.dark.png");
+                BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadWrite, bitmap.PixelFormat);
+
+                int bytesPerPixel = Image.GetPixelFormatSize(bitmap.PixelFormat) / 8;
+                byte[] pixels = new byte[bitmapData.Stride * bitmap.Height];
+                IntPtr pointer = bitmapData.Scan0;
+                Marshal.Copy(pointer, pixels, 0, pixels.Length);
+                int bytesWidth = bitmapData.Width * bytesPerPixel;
+
+                for (int j = 0; j < bitmapData.Height; j++)
+                {
+                    int line = j * bitmapData.Stride;
+                    for (int i = 0; i < bytesWidth; i += bytesPerPixel)
+                    {
+                        pixels[line + i] = color.B;
+                        pixels[line + i + 1] = color.G;
+                        pixels[line + i + 2] = color.R;
+                    }
+                }
+
+                Marshal.Copy(pixels, 0, pointer, pixels.Length);
+                bitmap.UnlockBits(bitmapData);
+
+                var filePath = $"{_generatedImagesDirectory}{key}.png";
+                bitmap.Save(filePath, ImageFormat.Png);
+                return Path2Bitmap(filePath);
+            });
+        }
+
+        private BitmapSource Path2Bitmap(string path) => WindowsThumbnailProvider.GetThumbnail(path, Constant.ThumbnailSize, Constant.ThumbnailSize, ThumbnailOptions.ThumbnailOnly);
 
         internal void Cleanup()
         {
+            _imageCache.Clear();
             if (_deleteColoredIconsOnCleanup)
             {
-                _coloredImageCached.Clear();
-                foreach (var icon in new DirectoryInfo(_generatedIconsDirectory).EnumerateFiles())
+                foreach (var file in new DirectoryInfo(_generatedImagesDirectory).EnumerateFiles())
                 {
                     try
                     {
-                        icon.Delete();
+                        file.Delete();
                     }
                     catch (Exception ex) when (ex is DirectoryNotFoundException || ex is IOException)
                     {
-                        Log.Error($"Failed to delete icon at \"{icon}\"", GetType());
+                        Log.Error($"Failed to delete icon at \"{file}\"", GetType());
                     }
                 }
             }
