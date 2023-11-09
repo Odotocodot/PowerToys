@@ -130,7 +130,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 QueryTextDisplay = queryTextDisplay,
                 SubTitle = subTitle,
                 Score = score,
-                IcoPath = _iconProvider.GetIcon(item),
+                Icon = () => _iconProvider.GetIcon(item),
                 ContextData = item,
                 Action = ResultAction(() =>
                 {
