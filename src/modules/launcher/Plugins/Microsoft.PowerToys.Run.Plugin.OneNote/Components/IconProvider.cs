@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -26,7 +27,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         private bool _deleteColoredIconsOnCleanup;
 
-        private string _theme = "light";
+        private string _theme;
 
         internal string NewPage => $"Images/page_new.{GetIconType(true)}.png";
 
@@ -74,6 +75,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         private void OnThemeChanged(Theme oldTheme, Theme newTheme) => UpdateTheme(newTheme);
 
+        [MemberNotNull(nameof(_theme))]
         private void UpdateTheme(Theme theme) => _theme = theme == Theme.Light || theme == Theme.HighContrastWhite ? "light" : "dark";
 
         private string GetIconType(bool hasColoredVersion = false) => hasColoredVersion && _settings.ColoredIcons ? "color" : _theme;
@@ -95,7 +97,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     }
 
                 case OneNoteSectionGroup sectionGroup:
-                    key = sectionGroup.IsRecycleBin ? $"recycle_bin.{_theme}" : $"section_group.{GetIconType(true)}";
+                    key = $"{(sectionGroup.IsRecycleBin ? $"recycle_bin" : $"section_group")}.{GetIconType(true)}";
                     break;
 
                 case OneNoteSection section:
