@@ -14,6 +14,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
         private readonly OneNoteSettings _settings;
         private readonly IconProvider _iconProvider;
         private readonly ResultCreator _resultCreator;
+        private readonly NotebookExplorer _notebookExplorer;
 
         internal SearchManager(PluginInitContext context, OneNoteSettings settings, IconProvider iconProvider, ResultCreator resultCreator)
         {
@@ -21,6 +22,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             _settings = settings;
             _resultCreator = resultCreator;
             _iconProvider = iconProvider;
+            _notebookExplorer = new NotebookExplorer(this, resultCreator, iconProvider);
         }
 
         internal List<Result> Query(Query query)
@@ -40,7 +42,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 string s when s.StartsWith(Keywords.RecentPages, StringComparison.Ordinal)
                     => RecentPages(s),
                 string s when s.StartsWith(Keywords.NotebookExplorer, StringComparison.Ordinal)
-                    => NotebookExplorer(query),
+                    => _notebookExplorer.Query(query),
                 string s when s.StartsWith(Keywords.TitleSearch, StringComparison.Ordinal)
                     => TitleSearch(string.Join(' ', query.Terms), null, OneNoteApplication.GetNotebooks()),
                 _ => DefaultSearch(query.Search),
@@ -129,130 +131,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             };
         }
 
-        private List<Result> NotebookExplorer(Query query)
-        {
-            var results = new List<Result>();
-
-            string fullSearch = query.Search.Remove(query.Search.IndexOf(Keywords.NotebookExplorer, StringComparison.Ordinal), Keywords.NotebookExplorer.Length);
-
-            IOneNoteItem? parent = null;
-            IEnumerable<IOneNoteItem> collection = OneNoteApplication.GetNotebooks();
-
-            string[] searches = fullSearch.Split(Keywords.NotebookExplorerSeparator, StringSplitOptions.None);
-
-            for (int i = -1; i < searches.Length - 1; i++)
-            {
-                if (i < 0)
-                {
-                    continue;
-                }
-
-                parent = collection.FirstOrDefault(item => item.Name.Equals(searches[i], StringComparison.Ordinal));
-                if (parent == null)
-                {
-                    return results;
-                }
-
-                collection = parent.Children;
-            }
-
-            string lastSearch = searches[^1];
-
-            results = lastSearch switch
-            {
-                // Empty search so show all in collection
-                string search when string.IsNullOrWhiteSpace(search)
-                    => NotebookEmptySearch(parent, collection),
-
-                // Search by title
-                string search when search.StartsWith(Keywords.TitleSearch, StringComparison.Ordinal) && parent is not OneNotePage
-                    => TitleSearch(search, parent, collection),
-
-                // Scoped search
-                string search when search.StartsWith(Keywords.ScopedSearch, StringComparison.Ordinal) && (parent is OneNoteNotebook || parent is OneNoteSectionGroup)
-                    => ScopedSearch(search, parent),
-
-                // Default search
-                _ => NotebookDefaultSearch(lastSearch, parent, collection),
-            };
-
-            if (parent != null)
-            {
-                var result = _resultCreator.CreateOneNoteItemResult(parent, false, score: 4000);
-                result.Title = $"Open \"{parent.Name}\" in OneNote";
-                result.SubTitle = lastSearch switch
-                {
-                    string search when search.StartsWith(Keywords.TitleSearch, StringComparison.Ordinal)
-                        => $"Now search by title in \"{parent.Name}\"",
-
-                    string search when search.StartsWith(Keywords.ScopedSearch, StringComparison.Ordinal)
-                        => $"Now searching all pages in \"{parent.Name}\"",
-
-                    _ => $"Use \'{Keywords.ScopedSearch}\' to search this item. Use \'{Keywords.TitleSearch}\' to search by title in this item",
-                };
-
-                results.Add(result);
-            }
-
-            return results;
-        }
-
-        private List<Result> NotebookDefaultSearch(string lastSearch, IOneNoteItem? parent, IEnumerable<IOneNoteItem> collection)
-        {
-            List<int>? highlightData = null;
-            int score = 0;
-
-            var results = collection.Where(SettingsCheck)
-                                    .Where(item => FuzzySearch(item.Name, lastSearch, out highlightData, out score))
-                                    .Select(item => _resultCreator.CreateOneNoteItemResult(item, true, highlightData, score))
-                                    .ToList();
-
-            AddCreateNewOneNoteItemResults(lastSearch, parent, results);
-            return results;
-        }
-
-        private List<Result> NotebookEmptySearch(IOneNoteItem? parent, IEnumerable<IOneNoteItem> collection)
-        {
-            List<Result> results = collection.Where(SettingsCheck)
-                                             .Select(item => _resultCreator.CreateOneNoteItemResult(item, true))
-                                             .ToList();
-            if (!results.Any())
-            {
-                // parent can be null if the collection only contains notebooks.
-                switch (parent)
-                {
-                    case OneNoteNotebook:
-                    case OneNoteSectionGroup:
-                        // Can create section/section group
-                        results.Add(NoItemsInCollectionResult("section", _iconProvider.NewSection, "(unencrypted) section"));
-                        results.Add(NoItemsInCollectionResult("section group", _iconProvider.NewSectionGroup));
-                        break;
-                    case OneNoteSection section:
-                        // Can create page
-                        if (!section.Locked)
-                        {
-                            results.Add(NoItemsInCollectionResult("page", _iconProvider.NewPage));
-                        }
-
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            return results;
-
-            static Result NoItemsInCollectionResult(string title, string iconPath, string? subTitle = null)
-            {
-                return new Result
-                {
-                    Title = $"Create {title}: \"\"",
-                    SubTitle = $"No {subTitle ?? title}s found. Type a valid title to create one",
-                    IcoPath = iconPath,
-                };
-            }
-        }
-
         private List<Result> ScopedSearch(string query, IOneNoteItem parent)
         {
             if (query.Length == Keywords.ScopedSearch.Length)
@@ -278,38 +156,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             }
 
             return results;
-        }
-
-        private void AddCreateNewOneNoteItemResults(string newItemName, IOneNoteItem? parent, List<Result> results)
-        {
-            if (!results.Any(result => string.Equals(newItemName.Trim(), result.Title, StringComparison.OrdinalIgnoreCase)))
-            {
-                if (parent?.IsInRecycleBin() == true)
-                {
-                    return;
-                }
-
-                switch (parent)
-                {
-                    case null:
-                        results.Add(_resultCreator.CreateNewNotebookResult(newItemName));
-                        break;
-                    case OneNoteNotebook:
-                    case OneNoteSectionGroup:
-                        results.Add(_resultCreator.CreateNewSectionResult(newItemName, parent));
-                        results.Add(_resultCreator.CreateNewSectionGroupResult(newItemName, parent));
-                        break;
-                    case OneNoteSection section:
-                        if (!section.Locked)
-                        {
-                            results.Add(_resultCreator.CreateNewPageResult(newItemName, section));
-                        }
-
-                        break;
-                    default:
-                        break;
-                }
-            }
         }
 
         private List<Result> DefaultSearch(string query)
@@ -428,6 +274,176 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             }
 
             return success;
+        }
+
+        private class NotebookExplorer
+        {
+            private readonly SearchManager _searchManager;
+            private readonly ResultCreator _resultCreator;
+            private readonly IconProvider _iconProvider;
+
+            internal NotebookExplorer(SearchManager searchManager, ResultCreator resultCreator, IconProvider iconProvider)
+            {
+                _searchManager = searchManager;
+                _resultCreator = resultCreator;
+                _iconProvider = iconProvider;
+            }
+
+            internal List<Result> Query(Query query)
+            {
+                var results = new List<Result>();
+
+                string fullSearch = query.Search.Remove(query.Search.IndexOf(Keywords.NotebookExplorer, StringComparison.Ordinal), Keywords.NotebookExplorer.Length);
+
+                IOneNoteItem? parent = null;
+                IEnumerable<IOneNoteItem> collection = OneNoteApplication.GetNotebooks();
+
+                string[] searches = fullSearch.Split(Keywords.NotebookExplorerSeparator, StringSplitOptions.None);
+
+                for (int i = -1; i < searches.Length - 1; i++)
+                {
+                    if (i < 0)
+                    {
+                        continue;
+                    }
+
+                    parent = collection.FirstOrDefault(item => item.Name.Equals(searches[i], StringComparison.Ordinal));
+                    if (parent == null)
+                    {
+                        return results;
+                    }
+
+                    collection = parent.Children;
+                }
+
+                string lastSearch = searches[^1];
+
+                results = lastSearch switch
+                {
+                    // Empty search so show all in collection
+                    string search when string.IsNullOrWhiteSpace(search)
+                        => EmptySearch(parent, collection),
+
+                    // Search by title
+                    string search when search.StartsWith(Keywords.TitleSearch, StringComparison.Ordinal) && parent is not OneNotePage
+                        => _searchManager.TitleSearch(search, parent, collection),
+
+                    // Scoped search
+                    string search when search.StartsWith(Keywords.ScopedSearch, StringComparison.Ordinal) && (parent is OneNoteNotebook || parent is OneNoteSectionGroup)
+                        => _searchManager.ScopedSearch(search, parent),
+
+                    // Default search
+                    _ => Explorer(lastSearch, parent, collection),
+                };
+
+                if (parent != null)
+                {
+                    var result = _resultCreator.CreateOneNoteItemResult(parent, false, score: 4000);
+                    result.Title = $"Open \"{parent.Name}\" in OneNote";
+                    result.SubTitle = lastSearch switch
+                    {
+                        string search when search.StartsWith(Keywords.TitleSearch, StringComparison.Ordinal)
+                            => $"Now search by title in \"{parent.Name}\"",
+
+                        string search when search.StartsWith(Keywords.ScopedSearch, StringComparison.Ordinal)
+                            => $"Now searching all pages in \"{parent.Name}\"",
+
+                        _ => $"Use \'{Keywords.ScopedSearch}\' to search this item. Use \'{Keywords.TitleSearch}\' to search by title in this item",
+                    };
+
+                    results.Add(result);
+                }
+
+                return results;
+            }
+
+            private List<Result> EmptySearch(IOneNoteItem? parent, IEnumerable<IOneNoteItem> collection)
+            {
+                List<Result> results = collection.Where(_searchManager.SettingsCheck)
+                                                 .Select(item => _resultCreator.CreateOneNoteItemResult(item, true))
+                                                 .ToList();
+                if (!results.Any())
+                {
+                    // parent can be null if the collection only contains notebooks.
+                    switch (parent)
+                    {
+                        case OneNoteNotebook:
+                        case OneNoteSectionGroup:
+                            // Can create section/section group
+                            results.Add(NoItemsInCollectionResult("section", _iconProvider.NewSection, "(unencrypted) section"));
+                            results.Add(NoItemsInCollectionResult("section group", _iconProvider.NewSectionGroup));
+                            break;
+                        case OneNoteSection section:
+                            // Can create page
+                            if (!section.Locked)
+                            {
+                                results.Add(NoItemsInCollectionResult("page", _iconProvider.NewPage));
+                            }
+
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                return results;
+
+                static Result NoItemsInCollectionResult(string title, string iconPath, string? subTitle = null)
+                {
+                    return new Result
+                    {
+                        Title = $"Create {title}: \"\"",
+                        SubTitle = $"No {subTitle ?? title}s found. Type a valid title to create one",
+                        IcoPath = iconPath,
+                    };
+                }
+            }
+
+            private List<Result> Explorer(string lastSearch, IOneNoteItem? parent, IEnumerable<IOneNoteItem> collection)
+            {
+                List<int>? highlightData = null;
+                int score = 0;
+
+                var results = collection.Where(_searchManager.SettingsCheck)
+                                        .Where(item => _searchManager.FuzzySearch(item.Name, lastSearch, out highlightData, out score))
+                                        .Select(item => _resultCreator.CreateOneNoteItemResult(item, true, highlightData, score))
+                                        .ToList();
+
+                AddCreateNewOneNoteItemResults(lastSearch, parent, results);
+                return results;
+            }
+
+            private void AddCreateNewOneNoteItemResults(string newItemName, IOneNoteItem? parent, List<Result> results)
+            {
+                if (!results.Any(result => string.Equals(newItemName.Trim(), result.Title, StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (parent?.IsInRecycleBin() == true)
+                    {
+                        return;
+                    }
+
+                    switch (parent)
+                    {
+                        case null:
+                            results.Add(_resultCreator.CreateNewNotebookResult(newItemName));
+                            break;
+                        case OneNoteNotebook:
+                        case OneNoteSectionGroup:
+                            results.Add(_resultCreator.CreateNewSectionResult(newItemName, parent));
+                            results.Add(_resultCreator.CreateNewSectionGroupResult(newItemName, parent));
+                            break;
+                        case OneNoteSection section:
+                            if (!section.Locked)
+                            {
+                                results.Add(_resultCreator.CreateNewPageResult(newItemName, section));
+                            }
+
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
         }
     }
 }
