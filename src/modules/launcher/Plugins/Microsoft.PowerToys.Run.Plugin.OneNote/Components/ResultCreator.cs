@@ -28,10 +28,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             _iconProvider = iconProvider;
         }
 
-        private static string GetNicePath(IOneNoteItem item, string separator = PathSeparator)
-        {
-            return item.RelativePath.Replace(_oldSeparator, separator);
-        }
+        private static string GetNicePath(IOneNoteItem item, string separator = PathSeparator) => item.RelativePath.Replace(_oldSeparator, separator);
 
         private string GetTitle(IOneNoteItem item, List<int>? highlightData)
         {
@@ -53,9 +50,114 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             return title;
         }
 
-        internal Result CreatePageResult(OneNotePage page, string? query = null)
+        private string GetQueryTextDisplay(IOneNoteItem item) => $"{Keywords.NotebookExplorer}{GetNicePath(item, Keywords.NotebookExplorerSeparator)}{Keywords.NotebookExplorerSeparator}";
+
+        private static string GetLastEdited(TimeSpan diff)
         {
-            return CreateOneNoteItemResult(page, false, string.IsNullOrWhiteSpace(query) ? null : StringMatcher.FuzzySearch(query, page.Name).MatchData);
+            string lastEdited = "Last edited ";
+            if (PluralCheck(diff.TotalDays, "day", ref lastEdited)
+             || PluralCheck(diff.TotalHours, "hour", ref lastEdited)
+             || PluralCheck(diff.TotalMinutes, "min", ref lastEdited)
+             || PluralCheck(diff.TotalSeconds, "sec", ref lastEdited))
+            {
+                return lastEdited;
+            }
+            else
+            {
+                return lastEdited += "Now.";
+            }
+
+            static bool PluralCheck(double totalTime, string timeType, ref string lastEdited)
+            {
+                var roundedTime = (int)Math.Round(totalTime);
+                if (roundedTime > 0)
+                {
+                    string plural = roundedTime == 1 ? string.Empty : "s";
+                    lastEdited += $"{roundedTime} {timeType}{plural} ago.";
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        internal List<Result> EmptyQuery(Query query)
+        {
+            if (_context.CurrentPluginMetadata.IsGlobal && !query.RawUserQuery.StartsWith(query.ActionKeyword, StringComparison.Ordinal))
+            {
+                return new List<Result>();
+            }
+
+            return new List<Result>
+            {
+                new Result
+                {
+                    Title = "Search OneNote pages",
+                    QueryTextDisplay = string.Empty,
+                    IcoPath = _iconProvider.Search,
+                    Score = 5000,
+                },
+                new Result
+                {
+                    Title = "View notebook explorer",
+                    SubTitle = $"Type \"{Keywords.NotebookExplorer}\" or select this option to search by notebook structure ",
+                    QueryTextDisplay = Keywords.NotebookExplorer,
+                    IcoPath = _iconProvider.NotebookExplorer,
+                    Score = 2000,
+                    Action = ResultAction(() =>
+                    {
+                        _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.NotebookExplorer}", true);
+                        return false;
+                    }),
+                },
+                new Result
+                {
+                    Title = "See recent pages",
+                    SubTitle = $"Type \"{Keywords.RecentPages}\" or select this option to see recently modified pages",
+                    QueryTextDisplay = Keywords.RecentPages,
+                    IcoPath = _iconProvider.Recent,
+                    Score = -1000,
+                    Action = ResultAction(() =>
+                    {
+                        _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.RecentPages}", true);
+                        return false;
+                    }),
+                },
+                new Result
+                {
+                    Title = "New quick note",
+                    IcoPath = _iconProvider.QuickNote,
+                    Score = -4000,
+                    Action = ResultAction(() =>
+                    {
+                        OneNoteApplication.CreateQuickNote(true);
+                        return true;
+                    }),
+                },
+                new Result
+                {
+                    Title = "Open and sync notebooks",
+                    IcoPath = _iconProvider.Sync,
+                    Score = int.MinValue,
+                    Action = ResultAction(() =>
+                    {
+                        foreach (var notebook in OneNoteApplication.GetNotebooks())
+                        {
+                            notebook.Sync();
+                        }
+
+                        OneNoteApplication.GetNotebooks()
+                                          .GetPages()
+                                          .Where(i => !i.IsInRecycleBin)
+                                          .OrderByDescending(pg => pg.LastModified)
+                                          .First()
+                                          .OpenItemInOneNote();
+                        return true;
+                    }),
+                },
+            };
         }
 
         internal Result CreateOneNoteItemResult(IOneNoteItem item, bool actionIsAutoComplete, List<int>? highlightData = null, int score = 0)
@@ -63,7 +165,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             string title = GetTitle(item, highlightData);
             string toolTip = string.Empty;
             string subTitle = GetNicePath(item);
-            string queryTextDisplay = $"{Keywords.NotebookExplorer}{GetNicePath(item, Keywords.NotebookExplorerSeparator)}";
+            string queryTextDisplay = GetQueryTextDisplay(item);
 
             switch (item)
             {
@@ -74,7 +176,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         $"Sections Groups:\t{notebook.SectionGroups.Count()}";
 
                     subTitle = string.Empty;
-                    queryTextDisplay += Keywords.NotebookExplorerSeparator;
                     break;
                 case OneNoteSectionGroup sectionGroup:
                     toolTip =
@@ -83,21 +184,12 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         $"Sections:\t\t{sectionGroup.Sections.Count()}\n" +
                         $"Sections Groups:\t{sectionGroup.SectionGroups.Count()}";
 
-                    queryTextDisplay += Keywords.NotebookExplorerSeparator;
                     break;
                 case OneNoteSection section:
                     if (section.Encrypted)
                     {
-                        // TODO potential replace with glyphs if supported
-                        title += " [Encrypted]";
-                        if (section.Locked)
-                        {
-                            title += "[Locked]";
-                        }
-                        else
-                        {
-                            title += "[Unlocked]";
-                        }
+                        // potentially replace with glyphs if supported
+                        title += $" [Encrypted] {(section.Locked ? "[Locked]" : "[Unlocked]")}";
                     }
 
                     toolTip =
@@ -105,16 +197,13 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         $"Last Modified:\t{section.LastModified}\n" +
                         $"Pages:\t\t{section.Pages.Count()}";
 
-                    queryTextDisplay += Keywords.NotebookExplorerSeparator;
                     break;
                 case OneNotePage page:
-                    if (!actionIsAutoComplete)
-                    {
-                        queryTextDisplay = string.Empty;
-                    }
+                    queryTextDisplay = !actionIsAutoComplete ? string.Empty : queryTextDisplay[..^1];
 
                     actionIsAutoComplete = false;
-                    subTitle = subTitle.Remove(subTitle.Length - (page.Name.Length + PathSeparator.Length));
+
+                    subTitle = subTitle[..^(page.Name.Length + PathSeparator.Length)];
                     toolTip =
                         $"Path:\t\t {subTitle} \n" +
                         $"Created:\t\t{page.Created:F}\n" +
@@ -147,33 +236,48 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             };
         }
 
-        internal Result CreateNewPageResult(string pageTitle, OneNoteSection section)
+        internal Result CreatePageResult(OneNotePage page, string? query)
         {
-            pageTitle = pageTitle.Trim();
+            return CreateOneNoteItemResult(page, false, string.IsNullOrWhiteSpace(query) ? null : StringMatcher.FuzzySearch(query, page.Name).MatchData);
+        }
+
+        internal Result CreateRecentPageResult(OneNotePage page)
+        {
+            var result = CreateOneNoteItemResult(page, false, null);
+            result.SubTitle = $"{GetLastEdited(DateTime.Now - page.LastModified)}\t{result.SubTitle}";
+            result.IcoPath = _iconProvider.Page;
+            return result;
+        }
+
+        internal Result CreateNewPageResult(string newPageName, OneNoteSection section)
+        {
+            newPageName = newPageName.Trim();
             return new Result
             {
-                Title = $"Create page: \"{pageTitle}\"",
-                SubTitle = $"Path: {GetNicePath(section)}{PathSeparator}{pageTitle}",
+                Title = $"Create page: \"{newPageName}\"",
+                SubTitle = $"Path: {GetNicePath(section)}{PathSeparator}{newPageName}",
+                QueryTextDisplay = $"{GetQueryTextDisplay}{newPageName}",
                 IcoPath = _iconProvider.NewPage,
                 Action = ResultAction(() =>
                 {
-                    OneNoteApplication.CreatePage(section, pageTitle, true);
+                    OneNoteApplication.CreatePage(section, newPageName, true);
                     return true;
                 }),
             };
         }
 
-        internal Result CreateNewSectionResult(string sectionTitle, IOneNoteItem parent)
+        internal Result CreateNewSectionResult(string newSectionName, IOneNoteItem parent)
         {
-            sectionTitle = sectionTitle.Trim();
-            bool validTitle = OneNoteApplication.IsSectionNameValid(sectionTitle);
+            newSectionName = newSectionName.Trim();
+            bool validTitle = OneNoteApplication.IsSectionNameValid(newSectionName);
 
             return new Result
             {
-                Title = $"Create section: \"{sectionTitle}\"",
+                Title = $"Create section: \"{newSectionName}\"",
                 SubTitle = validTitle
-                        ? $"Path: {GetNicePath(parent)}{PathSeparator}{sectionTitle}"
+                        ? $"Path: {GetNicePath(parent)}{PathSeparator}{newSectionName}"
                         : $"Section names cannot contain: {string.Join(' ', OneNoteApplication.InvalidSectionChars)}",
+                QueryTextDisplay = $"{GetQueryTextDisplay}{newSectionName}",
                 IcoPath = _iconProvider.NewSection,
                 Action = ResultAction(() =>
                 {
@@ -185,10 +289,10 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     switch (parent)
                     {
                         case OneNoteNotebook notebook:
-                            OneNoteApplication.CreateSection(notebook, sectionTitle, true);
+                            OneNoteApplication.CreateSection(notebook, newSectionName, true);
                             break;
                         case OneNoteSectionGroup sectionGroup:
-                            OneNoteApplication.CreateSection(sectionGroup, sectionTitle, true);
+                            OneNoteApplication.CreateSection(sectionGroup, newSectionName, true);
                             break;
                         default:
                             break;
@@ -200,17 +304,18 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             };
         }
 
-        internal Result CreateNewSectionGroupResult(string sectionGroupTitle, IOneNoteItem parent)
+        internal Result CreateNewSectionGroupResult(string newSectionGroupName, IOneNoteItem parent)
         {
-            sectionGroupTitle = sectionGroupTitle.Trim();
-            bool validTitle = OneNoteApplication.IsSectionGroupNameValid(sectionGroupTitle);
+            newSectionGroupName = newSectionGroupName.Trim();
+            bool validTitle = OneNoteApplication.IsSectionGroupNameValid(newSectionGroupName);
 
             return new Result
             {
-                Title = $"Create section group: \"{sectionGroupTitle}\"",
+                Title = $"Create section group: \"{newSectionGroupName}\"",
                 SubTitle = validTitle
-                    ? $"Path: {GetNicePath(parent)}{PathSeparator}{sectionGroupTitle}"
+                    ? $"Path: {GetNicePath(parent)}{PathSeparator}{newSectionGroupName}"
                     : $"Section group names cannot contain: {string.Join(' ', OneNoteApplication.InvalidSectionGroupChars)}",
+                QueryTextDisplay = $"{GetQueryTextDisplay}{newSectionGroupName}",
                 IcoPath = _iconProvider.NewSectionGroup,
                 Action = ResultAction(() =>
                 {
@@ -222,10 +327,10 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     switch (parent)
                     {
                         case OneNoteNotebook notebook:
-                            OneNoteApplication.CreateSectionGroup(notebook, sectionGroupTitle, true);
+                            OneNoteApplication.CreateSectionGroup(notebook, newSectionGroupName, true);
                             break;
                         case OneNoteSectionGroup sectionGroup:
-                            OneNoteApplication.CreateSectionGroup(sectionGroup, sectionGroupTitle, true);
+                            OneNoteApplication.CreateSectionGroup(sectionGroup, newSectionGroupName, true);
                             break;
                         default:
                             break;
@@ -237,17 +342,18 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             };
         }
 
-        internal Result CreateNewNotebookResult(string notebookTitle)
+        internal Result CreateNewNotebookResult(string newNotebookName)
         {
-            notebookTitle = notebookTitle.Trim();
-            bool validTitle = OneNoteApplication.IsNotebookNameValid(notebookTitle);
+            newNotebookName = newNotebookName.Trim();
+            bool validTitle = OneNoteApplication.IsNotebookNameValid(newNotebookName);
 
             return new Result
             {
-                Title = $"Create notebook: \"{notebookTitle}\"",
+                Title = $"Create notebook: \"{newNotebookName}\"",
                 SubTitle = validTitle
                     ? $"Location: {OneNoteApplication.GetDefaultNotebookLocation()}"
                     : $"Notebook names cannot contain: {string.Join(' ', OneNoteApplication.InvalidNotebookChars)}",
+                QueryTextDisplay = $"{GetQueryTextDisplay}{newNotebookName}",
                 IcoPath = _iconProvider.NewNotebook,
                 Action = ResultAction(() =>
                 {
@@ -256,7 +362,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                         return false;
                     }
 
-                    OneNoteApplication.CreateNotebook(notebookTitle, true);
+                    OneNoteApplication.CreateNotebook(newNotebookName, true);
                     _context.API.ChangeQuery(_context.CurrentPluginMetadata.ActionKeyword, true);
                     return true;
                 }),
@@ -333,15 +439,25 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
         }
 
         // TODO Localize
-        internal List<Result> NoMatchesFound() => SingleResult(
-            "No matches found",
-            "Try searching something else, or syncing your notebooks.",
-            _iconProvider.Search);
+        internal List<Result> NoMatchesFound(bool show)
+        {
+            return show
+                ? SingleResult(
+                    "No matches found",
+                    "Try searching something else, or syncing your notebooks.",
+                    _iconProvider.Search)
+                : new List<Result>();
+        }
 
-        internal List<Result> InvalidQuery() => SingleResult(
-            "Invalid query",
-            "The first character of the search must be a letter or a digit",
-            _iconProvider.Warning);
+        internal List<Result> InvalidQuery(bool show)
+        {
+            return show
+                ? SingleResult(
+                    "Invalid query",
+                    "The first character of the search must be a letter or a digit",
+                    _iconProvider.Warning)
+                : new List<Result>();
+        }
 
         internal List<Result> OneNoteNotInstalled()
         {
