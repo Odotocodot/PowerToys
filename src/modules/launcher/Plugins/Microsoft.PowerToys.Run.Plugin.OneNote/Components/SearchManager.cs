@@ -16,6 +16,9 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
         private readonly ResultCreator _resultCreator;
         private readonly NotebookExplorer _notebookExplorer;
 
+        // If the plugin is in global mode and does not start with the action keyword, do not show single results like invalid query.
+        private bool showSingleResults = true;
+
         internal SearchManager(PluginInitContext context, OneNoteSettings settings, IconProvider iconProvider, ResultCreator resultCreator)
         {
             _context = context;
@@ -27,135 +30,24 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         internal List<Result> Query(Query query)
         {
-            /* Three scenarios:
-             * Global on,   ActionKeyword used      -> fancy stuffs
-             * Global on,   ActionKeyword not used  -> query.Search
-             * Global off,  ActionKeyword used      -> query.Search */
-            string search = query.Search;
-            if (_context.CurrentPluginMetadata.IsGlobal && query.RawUserQuery.StartsWith(query.ActionKeyword, StringComparison.Ordinal))
+            if (_context.CurrentPluginMetadata.IsGlobal)
             {
-                search = query.RawUserQuery[query.ActionKeyword.Length..].TrimStart();
+                showSingleResults = query.RawUserQuery.StartsWith(_context.CurrentPluginMetadata.ActionKeyword, StringComparison.Ordinal);
             }
 
-            return search switch
+            return query.Search switch
             {
                 string s when s.StartsWith(Keywords.RecentPages, StringComparison.Ordinal)
                     => RecentPages(s),
+
                 string s when s.StartsWith(Keywords.NotebookExplorer, StringComparison.Ordinal)
                     => _notebookExplorer.Query(query),
+
                 string s when s.StartsWith(Keywords.TitleSearch, StringComparison.Ordinal)
-                    => TitleSearch(string.Join(' ', query.Terms), null, OneNoteApplication.GetNotebooks()),
+                    => TitleSearch(s, null, OneNoteApplication.GetNotebooks()),
+
                 _ => DefaultSearch(query.Search),
             };
-        }
-
-        internal List<Result> EmptyQuery(Query? query)
-        {
-            if (_context.CurrentPluginMetadata.IsGlobal && query?.RawUserQuery.StartsWith(query.ActionKeyword, StringComparison.Ordinal) != true)
-            {
-                return new List<Result>();
-            }
-
-            if (query is null)
-            {
-                throw new ArgumentNullException(nameof(query));
-            }
-
-            return new List<Result>
-            {
-                new Result
-                {
-                    Title = "Search OneNote pages",
-                    QueryTextDisplay = string.Empty,
-                    IcoPath = _iconProvider.Search,
-                    Score = 5000,
-                },
-                new Result
-                {
-                    Title = "View notebook explorer",
-                    SubTitle = $"Type \"{Keywords.NotebookExplorer}\" or select this option to search by notebook structure ",
-                    QueryTextDisplay = $"{Keywords.NotebookExplorer}",
-                    IcoPath = _iconProvider.NotebookExplorer,
-                    Score = 2000,
-                    Action = ResultCreator.ResultAction(() =>
-                    {
-                        _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.NotebookExplorer}", true);
-                        return false;
-                    }),
-                },
-                new Result
-                {
-                    Title = "See recent pages",
-                    SubTitle = $"Type \"{Keywords.RecentPages}\" or select this option to see recently modified pages",
-                    QueryTextDisplay = $"{Keywords.RecentPages}",
-                    IcoPath = _iconProvider.Recent,
-                    Score = -1000,
-                    Action = ResultCreator.ResultAction(() =>
-                    {
-                        _context.API.ChangeQuery($"{_context.CurrentPluginMetadata.ActionKeyword} {Keywords.RecentPages}", true);
-                        return false;
-                    }),
-                },
-                new Result
-                {
-                    Title = "New quick note",
-                    IcoPath = _iconProvider.QuickNote,
-                    Score = -4000,
-                    Action = ResultCreator.ResultAction(() =>
-                    {
-                        OneNoteApplication.CreateQuickNote(true);
-                        return true;
-                    }),
-                },
-                new Result
-                {
-                    Title = "Open and sync notebooks",
-                    IcoPath = _iconProvider.Sync,
-                    Score = int.MinValue,
-                    Action = ResultCreator.ResultAction(() =>
-                    {
-                        foreach (var notebook in OneNoteApplication.GetNotebooks())
-                        {
-                            notebook.Sync();
-                        }
-
-                        OneNoteApplication.GetNotebooks()
-                                          .GetPages()
-                                          .Where(i => !i.IsInRecycleBin)
-                                          .OrderByDescending(pg => pg.LastModified)
-                                          .First()
-                                          .OpenItemInOneNote();
-                        return true;
-                    }),
-                },
-            };
-        }
-
-        private List<Result> ScopedSearch(string query, IOneNoteItem parent)
-        {
-            if (query.Length == Keywords.ScopedSearch.Length)
-            {
-                return _resultCreator.NoMatchesFound();
-            }
-
-            if (!char.IsLetterOrDigit(query[Keywords.ScopedSearch.Length]))
-            {
-                return _resultCreator.InvalidQuery();
-            }
-
-            string currentSearch = query[Keywords.TitleSearch.Length..];
-            var results = new List<Result>();
-
-            results = OneNoteApplication.FindPages(currentSearch, parent)
-                                        .Select(pg => _resultCreator.CreatePageResult(pg, currentSearch))
-                                        .ToList();
-
-            if (!results.Any())
-            {
-                results = _resultCreator.NoMatchesFound();
-            }
-
-            return results;
         }
 
         private List<Result> DefaultSearch(string query)
@@ -163,13 +55,13 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             // Check for invalid start of query i.e. symbols
             if (!char.IsLetterOrDigit(query[0]))
             {
-                return _resultCreator.InvalidQuery();
+                return _resultCreator.InvalidQuery(showSingleResults);
             }
 
             var results = OneNoteApplication.FindPages(query)
                                             .Select(pg => _resultCreator.CreatePageResult(pg, query));
 
-            return results.Any() ? results.ToList() : _resultCreator.NoMatchesFound();
+            return results.Any() ? results.ToList() : _resultCreator.NoMatchesFound(showSingleResults);
         }
 
         private List<Result> TitleSearch(string query, IOneNoteItem? parent, IEnumerable<IOneNoteItem> currentCollection)
@@ -188,18 +80,13 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                            .Select(item => _resultCreator.CreateOneNoteItemResult(item, false, highlightData, score))
                                            .ToList();
 
-            if (!results.Any())
-            {
-                results = _resultCreator.NoMatchesFound();
-            }
-
-            return results;
+            return results.Any() ? results : _resultCreator.NoMatchesFound(showSingleResults);
         }
 
         private List<Result> RecentPages(string query)
         {
             int count = 10; // TODO: Ideally this should match PowerToysRunSettings.MaxResultsToShow
-/*            var settingsUtils = new SettingsUtils();
+/*          var settingsUtils = new SettingsUtils();
             var generalSettings = settingsUtils.GetSettings<GeneralSettings>();*/
             if (query.Length > Keywords.RecentPages.Length && int.TryParse(query[Keywords.RecentPages.Length..], out int userChosenCount))
             {
@@ -211,45 +98,8 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                      .Where(SettingsCheck)
                                      .OrderByDescending(pg => pg.LastModified)
                                      .Take(count)
-                                     .Select(pg =>
-                                     {
-                                         Result result = _resultCreator.CreatePageResult(pg);
-                                         result.SubTitle = $"{GetLastEdited(DateTime.Now - pg.LastModified)}\t{result.SubTitle}";
-                                         result.IcoPath = _iconProvider.Page;
-                                         return result;
-                                     })
+                                     .Select(_resultCreator.CreateRecentPageResult)
                                      .ToList();
-        }
-
-        private static string GetLastEdited(TimeSpan diff)
-        {
-            string lastEdited = "Last edited ";
-            if (PluralCheck(diff.TotalDays, "day", ref lastEdited)
-             || PluralCheck(diff.TotalHours, "hour", ref lastEdited)
-             || PluralCheck(diff.TotalMinutes, "min", ref lastEdited)
-             || PluralCheck(diff.TotalSeconds, "sec", ref lastEdited))
-            {
-                return lastEdited;
-            }
-            else
-            {
-                return lastEdited += "Now.";
-            }
-
-            static bool PluralCheck(double totalTime, string timeType, ref string lastEdited)
-            {
-                var roundedTime = (int)Math.Round(totalTime);
-                if (roundedTime > 0)
-                {
-                    string plural = roundedTime == 1 ? string.Empty : "s";
-                    lastEdited += $"{roundedTime} {timeType}{plural} ago.";
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
         }
 
         private bool FuzzySearch(string itemName, string search, out List<int> highlightData, out int score)
@@ -276,7 +126,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             return success;
         }
 
-        private class NotebookExplorer
+        private sealed class NotebookExplorer
         {
             private readonly SearchManager _searchManager;
             private readonly ResultCreator _resultCreator;
@@ -293,7 +143,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             {
                 var results = new List<Result>();
 
-                string fullSearch = query.Search.Remove(query.Search.IndexOf(Keywords.NotebookExplorer, StringComparison.Ordinal), Keywords.NotebookExplorer.Length);
+                string fullSearch = query.Search[(query.Search.IndexOf(Keywords.NotebookExplorer, StringComparison.Ordinal) + Keywords.NotebookExplorer.Length)..];
 
                 IOneNoteItem? parent = null;
                 IEnumerable<IOneNoteItem> collection = OneNoteApplication.GetNotebooks();
@@ -330,7 +180,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
                     // Scoped search
                     string search when search.StartsWith(Keywords.ScopedSearch, StringComparison.Ordinal) && (parent is OneNoteNotebook || parent is OneNoteSectionGroup)
-                        => _searchManager.ScopedSearch(search, parent),
+                        => ScopedSearch(search, parent),
 
                     // Default search
                     _ => Explorer(lastSearch, parent, collection),
@@ -399,17 +249,44 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 }
             }
 
-            private List<Result> Explorer(string lastSearch, IOneNoteItem? parent, IEnumerable<IOneNoteItem> collection)
+            private List<Result> ScopedSearch(string query, IOneNoteItem parent)
+            {
+                if (query.Length == Keywords.ScopedSearch.Length)
+                {
+                    return _resultCreator.NoMatchesFound(_searchManager.showSingleResults);
+                }
+
+                if (!char.IsLetterOrDigit(query[Keywords.ScopedSearch.Length]))
+                {
+                    return _resultCreator.InvalidQuery(_searchManager.showSingleResults);
+                }
+
+                string currentSearch = query[Keywords.TitleSearch.Length..];
+                var results = new List<Result>();
+
+                results = OneNoteApplication.FindPages(currentSearch, parent)
+                                            .Select(pg => _resultCreator.CreatePageResult(pg, currentSearch))
+                                            .ToList();
+
+                if (!results.Any())
+                {
+                    results = _resultCreator.NoMatchesFound(_searchManager.showSingleResults);
+                }
+
+                return results;
+            }
+
+            private List<Result> Explorer(string search, IOneNoteItem? parent, IEnumerable<IOneNoteItem> collection)
             {
                 List<int>? highlightData = null;
                 int score = 0;
 
                 var results = collection.Where(_searchManager.SettingsCheck)
-                                        .Where(item => _searchManager.FuzzySearch(item.Name, lastSearch, out highlightData, out score))
+                                        .Where(item => _searchManager.FuzzySearch(item.Name, search, out highlightData, out score))
                                         .Select(item => _resultCreator.CreateOneNoteItemResult(item, true, highlightData, score))
                                         .ToList();
 
-                AddCreateNewOneNoteItemResults(lastSearch, parent, results);
+                AddCreateNewOneNoteItemResults(search, parent, results);
                 return results;
             }
 

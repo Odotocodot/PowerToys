@@ -90,26 +90,26 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         /// <returns>A filtered list, can be empty when nothing was found</returns>
         public List<Result> Query(Query query)
         {
-            if (!_oneNoteInstalled)
-            {
-                return _resultCreator is null ? new List<Result>() : _resultCreator.OneNoteNotInstalled();
-            }
-
-            if (_searchManager is null)
+            if (_resultCreator is null)
             {
                 return new List<Result>();
             }
 
-            if (string.IsNullOrWhiteSpace(query?.Search))
+            if (!_oneNoteInstalled)
             {
-                return _searchManager.EmptyQuery(query);
+                return _resultCreator.OneNoteNotInstalled();
+            }
+
+            if (string.IsNullOrWhiteSpace(query.Search))
+            {
+                return _resultCreator.EmptyQuery(query);
             }
 
             // If a COM Object has been acquired results return faster
             if (OneNoteApplication.HasComObject)
             {
                 ResetTimeout();
-                return _searchManager.Query(query);
+                return _searchManager is null ? new List<Result>() : _searchManager.Query(query);
             }
 
             return new List<Result>();
@@ -123,19 +123,19 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
         /// <returns>A filtered list, can be empty when nothing was found</returns>
         public List<Result> Query(Query query, bool delayedExecution)
         {
-            if (!_oneNoteInstalled)
-            {
-                return _resultCreator is null ? new List<Result>() : _resultCreator.OneNoteNotInstalled();
-            }
-
-            if (_searchManager is null)
+            if (_resultCreator is null)
             {
                 return new List<Result>();
             }
 
-            if (string.IsNullOrWhiteSpace(query?.Search))
+            if (!_oneNoteInstalled)
             {
-                return _searchManager.EmptyQuery(query);
+                return _resultCreator.OneNoteNotInstalled();
+            }
+
+            if (string.IsNullOrWhiteSpace(query.Search))
+            {
+                return _resultCreator.EmptyQuery(query);
             }
 
             if (OneNoteApplication.HasComObject)
@@ -144,8 +144,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             }
 
             ResetTimeout();
-
-            return _searchManager.Query(query);
+            return _searchManager is null ? new List<Result>() : _searchManager.Query(query);
         }
 
         /// <summary>
@@ -176,15 +175,9 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote
             return _resultCreator is null ? new List<ContextMenuResult>() : _resultCreator.LoadContextMenu(selectedResult);
         }
 
-        public Control CreateSettingPanel()
-        {
-            throw new NotImplementedException();
-        }
+        public Control CreateSettingPanel() => throw new NotImplementedException();
 
-        public void UpdateSettings(PowerLauncherPluginSettings settings)
-        {
-            _settings.UpdateSettings(settings);
-        }
+        public void UpdateSettings(PowerLauncherPluginSettings settings) => _settings.UpdateSettings(settings);
 
         protected virtual void Dispose(bool disposing)
         {

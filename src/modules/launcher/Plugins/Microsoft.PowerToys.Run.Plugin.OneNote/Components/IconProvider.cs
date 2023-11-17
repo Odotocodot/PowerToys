@@ -80,6 +80,44 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         private string GetIconType(bool hasColoredVersion = false) => hasColoredVersion && _settings.ColoredIcons ? "color" : _theme;
 
+        private BitmapSource GetColoredIcon(string itemType, Color itemColor)
+        {
+            var key = $"{itemType}.{itemColor.ToArgb()}";
+
+            return _imageCache.GetOrAdd(key, key =>
+            {
+                var color = itemColor;
+                using var bitmap = new Bitmap($"{_imagesDirectory}{itemType}.dark.png");
+                BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadWrite, bitmap.PixelFormat);
+
+                int bytesPerPixel = Image.GetPixelFormatSize(bitmap.PixelFormat) / 8;
+                byte[] pixels = new byte[bitmapData.Stride * bitmap.Height];
+                IntPtr pointer = bitmapData.Scan0;
+                Marshal.Copy(pointer, pixels, 0, pixels.Length);
+                int bytesWidth = bitmapData.Width * bytesPerPixel;
+
+                for (int j = 0; j < bitmapData.Height; j++)
+                {
+                    int line = j * bitmapData.Stride;
+                    for (int i = 0; i < bytesWidth; i += bytesPerPixel)
+                    {
+                        pixels[line + i] = color.B;
+                        pixels[line + i + 1] = color.G;
+                        pixels[line + i + 2] = color.R;
+                    }
+                }
+
+                Marshal.Copy(pixels, 0, pointer, pixels.Length);
+                bitmap.UnlockBits(bitmapData);
+
+                var filePath = $"{_generatedImagesDirectory}{key}.png";
+                bitmap.Save(filePath, ImageFormat.Png);
+                return Path2Bitmap(filePath);
+            });
+        }
+
+        private BitmapSource Path2Bitmap(string path) => WindowsThumbnailProvider.GetThumbnail(path, Constant.ThumbnailSize, Constant.ThumbnailSize, ThumbnailOptions.ThumbnailOnly);
+
         internal System.Windows.Media.ImageSource GetIcon(IOneNoteItem item)
         {
             string key;
@@ -121,44 +159,6 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
             return _imageCache.GetOrAdd(key, key => Path2Bitmap($"{_imagesDirectory}{key}.png"));
         }
-
-        private BitmapSource GetColoredIcon(string itemType, Color itemColor)
-        {
-            var key = $"{itemType}.{itemColor.ToArgb()}";
-
-            return _imageCache.GetOrAdd(key, key =>
-            {
-                var color = itemColor;
-                using var bitmap = new Bitmap($"{_imagesDirectory}{itemType}.dark.png");
-                BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadWrite, bitmap.PixelFormat);
-
-                int bytesPerPixel = Image.GetPixelFormatSize(bitmap.PixelFormat) / 8;
-                byte[] pixels = new byte[bitmapData.Stride * bitmap.Height];
-                IntPtr pointer = bitmapData.Scan0;
-                Marshal.Copy(pointer, pixels, 0, pixels.Length);
-                int bytesWidth = bitmapData.Width * bytesPerPixel;
-
-                for (int j = 0; j < bitmapData.Height; j++)
-                {
-                    int line = j * bitmapData.Stride;
-                    for (int i = 0; i < bytesWidth; i += bytesPerPixel)
-                    {
-                        pixels[line + i] = color.B;
-                        pixels[line + i + 1] = color.G;
-                        pixels[line + i + 2] = color.R;
-                    }
-                }
-
-                Marshal.Copy(pixels, 0, pointer, pixels.Length);
-                bitmap.UnlockBits(bitmapData);
-
-                var filePath = $"{_generatedImagesDirectory}{key}.png";
-                bitmap.Save(filePath, ImageFormat.Png);
-                return Path2Bitmap(filePath);
-            });
-        }
-
-        private BitmapSource Path2Bitmap(string path) => WindowsThumbnailProvider.GetThumbnail(path, Constant.ThumbnailSize, Constant.ThumbnailSize, ThumbnailOptions.ThumbnailOnly);
 
         internal void Cleanup()
         {
