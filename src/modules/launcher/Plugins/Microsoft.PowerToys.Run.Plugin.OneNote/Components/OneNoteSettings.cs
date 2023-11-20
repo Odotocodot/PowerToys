@@ -27,11 +27,11 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             private set
             {
                 coloredIcons = value;
-                ColoredIconSettingChanged?.Invoke(this, value);
+                ColoredIconsSettingChanged?.Invoke();
             }
         }
 
-        internal event EventHandler<bool>? ColoredIconSettingChanged;
+        internal event Action? ColoredIconsSettingChanged;
 
         public IEnumerable<PluginAdditionalOption> AdditionalOptions => new List<PluginAdditionalOption>()
         {
