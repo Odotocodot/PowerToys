@@ -27,64 +27,76 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
         private bool _deleteColoredIconsOnCleanup;
 
-        private string _theme;
+        private string _powerToysTheme;
+        private string _pluginTheme;
 
-        internal string NewPage => $"Images/page_new.{GetIconType(true)}.png";
+        internal string NewPage => $"Images/page_new.{_pluginTheme}.png";
 
-        internal string NewSection => $"Images/section_new.{GetIconType()}.png";
+        internal string NewSection => $"Images/section_new.{_pluginTheme}.png";
 
-        internal string NewSectionGroup => $"Images/section_group_new.{GetIconType(true)}.png";
+        internal string NewSectionGroup => $"Images/section_group_new.{_pluginTheme}.png";
 
-        internal string NewNotebook => $"Images/notebook_new.{GetIconType()}.png";
+        internal string NewNotebook => $"Images/notebook_new.{_pluginTheme}.png";
 
-        internal string Page => $"Images/page.{GetIconType(true)}.png";
+        internal string Page => $"Images/page.{_pluginTheme}.png";
 
-        internal string Recent => $"Images/page_recent.{GetIconType()}.png";
+        internal string Recent => $"Images/page_recent.{_pluginTheme}.png";
 
-        internal string Sync => $"Images/sync.{GetIconType()}.png";
+        internal string Sync => $"Images/sync.{_pluginTheme}.png";
 
-        internal string Search => $"Images/search.{GetIconType()}.png";
+        internal string Search => $"Images/search.{_pluginTheme}.png";
 
-        internal string NotebookExplorer => $"Images/notebook_explorer.{GetIconType()}.png";
+        internal string NotebookExplorer => $"Images/notebook_explorer.{_pluginTheme}.png";
 
-        internal string Warning => $"Images/warning.{GetIconType()}.png";
+        internal string Warning => $"Images/warning.{_powerToysTheme}.png";
 
-        internal string QuickNote => $"Images/page_quick_note.{GetIconType()}.png";
+        internal string QuickNote => NewPage;
 
         internal IconProvider(PluginInitContext context, OneNoteSettings settings)
         {
             _settings = settings;
             _context = context;
-            _settings.ColoredIconSettingChanged += OnColoredIconSettingChanged;
+            _settings.ColoredIconsSettingChanged += OnColoredIconsSettingChanged;
             _context.API.ThemeChanged += OnThemeChanged;
 
             _imagesDirectory = $"{_context.CurrentPluginMetadata.PluginDirectory}/Images/";
             _generatedImagesDirectory = $"{_context.CurrentPluginMetadata.PluginDirectory}/Images/Generated/";
 
-            Directory.CreateDirectory(_generatedImagesDirectory);
+            if (!Directory.Exists(_generatedImagesDirectory))
+            {
+                Directory.CreateDirectory(_generatedImagesDirectory);
+            }
 
             foreach (var imagePath in Directory.EnumerateFiles(_generatedImagesDirectory))
             {
                 _imageCache.TryAdd(Path.GetFileNameWithoutExtension(imagePath), Path2Bitmap(imagePath));
             }
 
-            UpdateTheme(_context.API.GetCurrentTheme());
+            UpdatePowerToysTheme(_context.API.GetCurrentTheme());
         }
 
-        private void OnColoredIconSettingChanged(object? sender, bool coloredIcons) => _deleteColoredIconsOnCleanup = !coloredIcons;
+        private void OnColoredIconsSettingChanged()
+        {
+            _deleteColoredIconsOnCleanup = !_settings.ColoredIcons;
+            UpdatePluginTheme();
+        }
 
-        private void OnThemeChanged(Theme oldTheme, Theme newTheme) => UpdateTheme(newTheme);
+        private void OnThemeChanged(Theme oldTheme, Theme newTheme) => UpdatePowerToysTheme(newTheme);
 
-        [MemberNotNull(nameof(_theme))]
-        private void UpdateTheme(Theme theme) => _theme = theme == Theme.Light || theme == Theme.HighContrastWhite ? "light" : "dark";
+        [MemberNotNull(nameof(_powerToysTheme))]
+        [MemberNotNull(nameof(_pluginTheme))]
+        private void UpdatePowerToysTheme(Theme theme)
+        {
+            _powerToysTheme = theme == Theme.Light || theme == Theme.HighContrastWhite ? "light" : "dark";
+            UpdatePluginTheme();
+        }
 
-        private string GetIconType(bool hasColoredVersion = false) => hasColoredVersion && _settings.ColoredIcons ? "color" : _theme;
+        [MemberNotNull(nameof(_pluginTheme))]
+        private void UpdatePluginTheme() => _pluginTheme = _settings.ColoredIcons ? "color" : _powerToysTheme;
 
         private BitmapSource GetColoredIcon(string itemType, Color itemColor)
         {
-            var key = $"{itemType}.{itemColor.ToArgb()}";
-
-            return _imageCache.GetOrAdd(key, key =>
+            return _imageCache.GetOrAdd($"{itemType}.{itemColor.ToArgb()}", key =>
             {
                 var color = itemColor;
                 using var bitmap = new Bitmap($"{_imagesDirectory}{itemType}.dark.png");
@@ -126,7 +138,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 case OneNoteNotebook notebook:
                     if (!_settings.ColoredIcons || notebook.Color is null)
                     {
-                        key = $"{nameof(notebook)}.{_theme}";
+                        key = $"{nameof(notebook)}.{_powerToysTheme}";
                         break;
                     }
                     else
@@ -135,13 +147,13 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                     }
 
                 case OneNoteSectionGroup sectionGroup:
-                    key = $"{(sectionGroup.IsRecycleBin ? $"recycle_bin" : $"section_group")}.{GetIconType(true)}";
+                    key = $"{(sectionGroup.IsRecycleBin ? $"recycle_bin" : $"section_group")}.{_pluginTheme}";
                     break;
 
                 case OneNoteSection section:
                     if (!_settings.ColoredIcons || section.Color is null)
                     {
-                        key = $"{nameof(section)}.{_theme}";
+                        key = $"{nameof(section)}.{_powerToysTheme}";
                         break;
                     }
                     else
@@ -180,7 +192,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
 
             if (_settings != null)
             {
-                _settings.ColoredIconSettingChanged -= OnColoredIconSettingChanged;
+                _settings.ColoredIconsSettingChanged -= OnColoredIconsSettingChanged;
             }
 
             if (_context != null && _context.API != null)
