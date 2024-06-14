@@ -154,7 +154,7 @@
     <None Update="Images\search.light.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Images\section.color.png">
+    <None Update="Images\section_new.color.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Images\section.dark.png">
