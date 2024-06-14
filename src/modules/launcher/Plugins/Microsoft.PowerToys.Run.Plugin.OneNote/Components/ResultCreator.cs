@@ -438,6 +438,42 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
             return results;
         }
 
+        internal List<Result> NoItemsInCollection(IOneNoteItem? parent, List<Result> results)
+        {
+            // parent can be null if the collection only contains notebooks.
+            switch (parent)
+            {
+                case OneNoteNotebook:
+                case OneNoteSectionGroup:
+                    // Can create section/section group
+                    results.Add(NoItemsInCollectionResult("section", _iconProvider.NewSection, "(unencrypted) section"));
+                    results.Add(NoItemsInCollectionResult("section group", _iconProvider.NewSectionGroup));
+                    break;
+                case OneNoteSection section:
+                    // Can create page
+                    if (!section.Locked)
+                    {
+                        results.Add(NoItemsInCollectionResult("page", _iconProvider.NewPage));
+                    }
+
+                    break;
+                default:
+                    break;
+            }
+
+            return results;
+
+            static Result NoItemsInCollectionResult(string title, string iconPath, string? subTitle = null)
+            {
+                return new Result
+                {
+                    Title = $"Create {title}: \"\"",
+                    SubTitle = $"No {subTitle ?? title}s found. Type a valid title to create one",
+                    IcoPath = iconPath,
+                };
+            }
+        }
+
         // TODO Localize
         internal List<Result> NoMatchesFound(bool show)
         {

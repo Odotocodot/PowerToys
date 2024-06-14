@@ -80,7 +80,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                            .Select(item => _resultCreator.CreateOneNoteItemResult(item, false, highlightData, score))
                                            .ToList();
 
-            return results.Any() ? results : _resultCreator.NoMatchesFound(showSingleResults);
+            return results.Count != 0 ? results : _resultCreator.NoMatchesFound(showSingleResults);
         }
 
         private List<Result> RecentPages(string query)
@@ -212,41 +212,8 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                 List<Result> results = collection.Where(_searchManager.SettingsCheck)
                                                  .Select(item => _resultCreator.CreateOneNoteItemResult(item, true))
                                                  .ToList();
-                if (!results.Any())
-                {
-                    // parent can be null if the collection only contains notebooks.
-                    switch (parent)
-                    {
-                        case OneNoteNotebook:
-                        case OneNoteSectionGroup:
-                            // Can create section/section group
-                            results.Add(NoItemsInCollectionResult("section", _iconProvider.NewSection, "(unencrypted) section"));
-                            results.Add(NoItemsInCollectionResult("section group", _iconProvider.NewSectionGroup));
-                            break;
-                        case OneNoteSection section:
-                            // Can create page
-                            if (!section.Locked)
-                            {
-                                results.Add(NoItemsInCollectionResult("page", _iconProvider.NewPage));
-                            }
 
-                            break;
-                        default:
-                            break;
-                    }
-                }
-
-                return results;
-
-                static Result NoItemsInCollectionResult(string title, string iconPath, string? subTitle = null)
-                {
-                    return new Result
-                    {
-                        Title = $"Create {title}: \"\"",
-                        SubTitle = $"No {subTitle ?? title}s found. Type a valid title to create one",
-                        IcoPath = iconPath,
-                    };
-                }
+                return results.Count == 0 ? _resultCreator.NoItemsInCollection(parent, results) : results;
             }
 
             private List<Result> ScopedSearch(string query, IOneNoteItem parent)
@@ -268,7 +235,7 @@ namespace Microsoft.PowerToys.Run.Plugin.OneNote.Components
                                             .Select(pg => _resultCreator.CreatePageResult(pg, currentSearch))
                                             .ToList();
 
-                if (!results.Any())
+                if (results.Count == 0)
                 {
                     results = _resultCreator.NoMatchesFound(_searchManager.showSingleResults);
                 }
