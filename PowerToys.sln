@@ -710,6 +710,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CmdPalKeyboardService", "sr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PowerRename.FuzzingTest", "src\modules\powerrename\PowerRename.FuzzingTest\PowerRename.FuzzingTest.vcxproj", "{2694E2FB-DCD5-4BFF-A418-B6C3C7CE3B8E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.CmdPal.Ext.OneNote", "src\modules\cmdpal\ext\Microsoft.CmdPal.Ext.OneNote\Microsoft.CmdPal.Ext.OneNote.csproj", "{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -2596,6 +2598,14 @@ Global
 		{2694E2FB-DCD5-4BFF-A418-B6C3C7CE3B8E}.Release|ARM64.ActiveCfg = Release|ARM64
 		{2694E2FB-DCD5-4BFF-A418-B6C3C7CE3B8E}.Release|x64.ActiveCfg = Release|x64
 		{2694E2FB-DCD5-4BFF-A418-B6C3C7CE3B8E}.Release|x64.Build.0 = Release|x64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Debug|ARM64.Build.0 = Debug|ARM64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Debug|x64.ActiveCfg = Debug|x64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Debug|x64.Build.0 = Debug|x64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Release|ARM64.ActiveCfg = Release|ARM64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Release|ARM64.Build.0 = Release|ARM64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Release|x64.ActiveCfg = Release|x64
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -2868,6 +2878,7 @@ Global
 		{64B88F02-CD88-4ED8-9624-989A800230F9} = {ECB8E0D1-7603-4E5C-AB10-D1E545E6F8E2}
 		{5F63C743-F6CE-4DBA-A200-2B3F8A14E8C2} = {3846508C-77EB-4034-A702-F8BB263C4F79}
 		{2694E2FB-DCD5-4BFF-A418-B6C3C7CE3B8E} = {89E20BCE-EB9C-46C8-8B50-E01A82E6FDC3}
+		{FB0D146F-745E-42CB-8EA4-FAC1A8C0D2EC} = {ECB8E0D1-7603-4E5C-AB10-D1E545E6F8E2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C3A2F9D1-7930-4EF4-A6FC-7EE0A99821D0}
