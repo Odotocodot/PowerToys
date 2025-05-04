@@ -124,6 +124,15 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to encrypted.
+        /// </summary>
+        public static string Encrypted {
+            get {
+                return ResourceManager.GetString("Encrypted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid query.
         /// </summary>
         public static string InvalidQuery {
@@ -408,6 +417,15 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         public static string Unlocked {
             get {
                 return ResourceManager.GetString("Unlocked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to unread.
+        /// </summary>
+        public static string Unread {
+            get {
+                return ResourceManager.GetString("Unread", resourceCulture);
             }
         }
         

@@ -257,4 +257,10 @@
   <data name="Unlocked" xml:space="preserve">
     <value>Unlocked</value>
   </data>
+  <data name="Encrypted" xml:space="preserve">
+    <value>encrypted</value>
+  </data>
+  <data name="Unread" xml:space="preserve">
+    <value>unread</value>
+  </data>
 </root>
