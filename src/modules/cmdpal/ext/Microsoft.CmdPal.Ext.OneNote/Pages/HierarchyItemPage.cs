@@ -15,15 +15,13 @@ namespace Microsoft.CmdPal.Ext.OneNote.Pages;
 // TODO: support for scoped and scoped title searching
 public partial class HierarchyItemPage : ListPage
 {
-    private static readonly string _oldSeparator = OneNoteApplication.RelativePathSeparator.ToString();
-
     private readonly IOneNoteItem _item;
     private readonly IListItem[] _results;
 
     public HierarchyItemPage(string path, IEnumerable<IOneNoteItem> items)
     {
         _results = ResultCreator.CreateResults(items);
-        Title = $"{Constants.PluginName} - {path.Replace(_oldSeparator, " > ")}";
+        Title = $"{Constants.PluginName} - {ResultCreator.GetNicePath(path)}";
         Name = "Enter";
     }
 

@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using Microsoft.CmdPal.Ext.OneNote.Commands;
 using Microsoft.CmdPal.Ext.OneNote.Pages;
 using Microsoft.CmdPal.Ext.OneNote.Properties;
@@ -15,12 +17,17 @@ namespace Microsoft.CmdPal.Ext.OneNote.Components;
 
 public static class ResultCreator
 {
+    private static readonly CompositeFormat LastModified = CompositeFormat.Parse(Resources.LastModified);
+    private static readonly string _oldSeparator = OneNoteApplication.RelativePathSeparator.ToString();
+
+    public static string GetNicePath(string path) => path.Replace(_oldSeparator, " > ");
+
     public static IListItem[] CreateResults(IEnumerable<IOneNoteItem> items)
     {
         return items.Select(CreateResult).ToArray();
     }
 
-    private static IListItem CreateResult(IOneNoteItem item)
+    private static ListItem CreateResult(IOneNoteItem item)
     {
         ICommand command;
         IContextItem[] moreCommands;
@@ -40,10 +47,14 @@ public static class ResultCreator
             Title = item.Name,
             MoreCommands = moreCommands,
             Icon = IconProvider.GetIcon(item),
+            Subtitle = string.Format(CultureInfo.CurrentCulture, LastModified, item.LastModified), // Humanize?
+            TextToSuggest = item.Name,
         };
 
         var tags = new List<Tag>();
         tags.AddConditionally(item.IsUnread, Resources.Unread);
+
+        // tags.AddConditionally(item.IsInRecycleBin(), Resources.RecycleBin);
         if (item is OneNoteSection section)
         {
             tags.AddConditionally(section.Encrypted, Resources.Encrypted);
@@ -54,6 +65,20 @@ public static class ResultCreator
         return result;
     }
 
+    public static IListItem[] GetRecentPageResults(IEnumerable<IOneNoteItem> items)
+    {
+        return items.Select(item =>
+        {
+            var result = CreateResult(item);
+            result.Icon = IconProvider.RecentPage;
+            result.Subtitle = GetNicePath(item.RelativePath);
+
+            // TODO: add last time it was edited to tag maybe
+            return result;
+        }).ToArray();
+    }
+
+    // TODO: Cache tags and use icons when applicable
     private static void AddConditionally(this List<Tag> tags, bool condition, string name)
     {
         if (condition)

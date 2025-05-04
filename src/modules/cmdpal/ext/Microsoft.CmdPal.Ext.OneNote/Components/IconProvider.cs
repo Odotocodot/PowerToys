@@ -14,7 +14,7 @@ public class IconProvider
 
     public static IconInfo QuickNote { get; internal set; }
 
-    public static IconInfo RecentPages { get; internal set; }
+    public static IconInfo RecentPage { get; internal set; }
 
     public static IconInfo SyncNotebooks { get; internal set; }
 

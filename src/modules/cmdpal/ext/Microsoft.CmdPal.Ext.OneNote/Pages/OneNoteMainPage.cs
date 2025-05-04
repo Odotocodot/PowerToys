@@ -4,6 +4,7 @@
 
 using System.Data;
 using System.Linq;
+using Microsoft.CmdPal.Ext.OneNote.Commands;
 using Microsoft.CmdPal.Ext.OneNote.Components;
 using Microsoft.CmdPal.Ext.OneNote.Pages;
 using Microsoft.CmdPal.Ext.OneNote.Properties;
@@ -31,18 +32,18 @@ internal sealed partial class OneNoteMainPage : DynamicListPage
                 Icon = IconProvider.NotebookExplorer,
                 Details = new Details() { Title = "Details", Body = "Look its some preview" },
             },
-            new ListItem()
+            new ListItem(new RecentItemsPage(20)) // TODO: This number will be set in the settings
             {
                 Title = Resources.ViewRecentPages,
                 Subtitle = Resources.ViewRecentPagesDescription,
-                Icon = IconProvider.RecentPages,
+                Icon = IconProvider.RecentPage,
             },
             new ListItem()
             {
                 Title = Resources.NewQuickNote,
                 Icon = IconProvider.QuickNote,
             },
-            new ListItem()
+            new ListItem(new OpenSyncNotebooksCommand())
             {
                 Title = Resources.OpenSyncNotebooks,
                 Icon = IconProvider.SyncNotebooks,
