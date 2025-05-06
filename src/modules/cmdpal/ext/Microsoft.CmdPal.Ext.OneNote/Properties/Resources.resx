@@ -135,9 +135,9 @@
   <data name="SearchingPagesInX" xml:space="preserve">
     <value>Now searching all pages in "{0}"</value>
   </data>
-  <data name="SearchInItemInfo" xml:space="preserve">
-    <value>Use '{0}' to search this item. Use '{1}' to search by title in this item</value>
-    <comment>0 and 1 are static keywords used by then plugin.</comment>
+  <data name="TitleSearchDescription" xml:space="preserve">
+    <value>Use '{0}' to perform a nested search by item title only</value>
+    <comment>0 is static keyword used by the plugin.</comment>
   </data>
   <data name="DisplayUnreadIcon" xml:space="preserve">
     <value>Display unread icon</value>
@@ -262,5 +262,17 @@
   </data>
   <data name="Unread" xml:space="preserve">
     <value>unread</value>
+  </data>
+  <data name="Notebooks" xml:space="preserve">
+    <value>Notebooks</value>
+  </data>
+  <data name="Enter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="ScopedSearchDescription" xml:space="preserve">
+    <value>Use '{0}' to perform a nested search in this item</value>
+  </data>
+  <data name="Tip" xml:space="preserve">
+    <value>Tip:</value>
   </data>
 </root>

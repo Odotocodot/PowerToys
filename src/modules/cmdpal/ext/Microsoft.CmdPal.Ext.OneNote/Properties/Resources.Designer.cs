@@ -133,6 +133,15 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Enter.
+        /// </summary>
+        public static string Enter {
+            get {
+                return ResourceManager.GetString("Enter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid query.
         /// </summary>
         public static string InvalidQuery {
@@ -210,6 +219,15 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         public static string NotebookNamesCannotContain {
             get {
                 return ResourceManager.GetString("NotebookNamesCannotContain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Notebooks.
+        /// </summary>
+        public static string Notebooks {
+            get {
+                return ResourceManager.GetString("Notebooks", resourceCulture);
             }
         }
         
@@ -313,6 +331,15 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Use &apos;{0}&apos; to perform a nested search in this item.
+        /// </summary>
+        public static string ScopedSearchDescription {
+            get {
+                return ResourceManager.GetString("ScopedSearchDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Now searching by title..
         /// </summary>
         public static string SearchingByTitle {
@@ -336,15 +363,6 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         public static string SearchingPagesInX {
             get {
                 return ResourceManager.GetString("SearchingPagesInX", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Use &apos;{0}&apos; to search this item. Use &apos;{1}&apos; to search by title in this item.
-        /// </summary>
-        public static string SearchInItemInfo {
-            get {
-                return ResourceManager.GetString("SearchInItemInfo", resourceCulture);
             }
         }
         
@@ -408,6 +426,24 @@ namespace Microsoft.CmdPal.Ext.OneNote.Properties {
         public static string ShowRecycleBinDescription {
             get {
                 return ResourceManager.GetString("ShowRecycleBinDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Tip:.
+        /// </summary>
+        public static string Tip {
+            get {
+                return ResourceManager.GetString("Tip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use &apos;{0}&apos; to perform a nested search by item title only.
+        /// </summary>
+        public static string TitleSearchDescription {
+            get {
+                return ResourceManager.GetString("TitleSearchDescription", resourceCulture);
             }
         }
         

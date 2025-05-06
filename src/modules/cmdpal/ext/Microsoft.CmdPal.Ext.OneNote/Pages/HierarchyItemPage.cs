@@ -2,8 +2,11 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
-using Microsoft.CmdPal.Ext.OneNote.Components;
+using System.Linq;
+using Microsoft.CmdPal.Ext.OneNote.Helpers;
+using Microsoft.CmdPal.Ext.OneNote.Properties;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using Odotocodot.OneNote.Linq;
@@ -11,27 +14,99 @@ using Odotocodot.OneNote.Linq;
 namespace Microsoft.CmdPal.Ext.OneNote.Pages;
 
 // For OneNote hierarchy items that have children, i.e. everything but a OneNote Page
-// TODO: if no children, display empty content
-// TODO: support for scoped and scoped title searching
-public partial class HierarchyItemPage : ListPage
+public partial class HierarchyItemPage : DynamicListPage
 {
+    private readonly Lazy<List<IOneNoteItem>> _children;
     private readonly IOneNoteItem _item;
-    private readonly IListItem[] _results;
+    private List<ListItem> _results = [];
 
-    public HierarchyItemPage(string path, IEnumerable<IOneNoteItem> items)
+    private List<IOneNoteItem> Children => _children.Value;
+
+    public static HierarchyItemPage Root() => new(null, OneNoteApplication.GetNotebooks, Resources.Notebooks);
+
+    private HierarchyItemPage(IOneNoteItem item, Func<IEnumerable<IOneNoteItem>> itemsGetter, string path)
     {
-        _results = ResultCreator.CreateResults(items);
-        Title = $"{Constants.PluginName} - {ResultCreator.GetNicePath(path)}";
-        Name = "Enter";
+        _item = item;
+        _children = new Lazy<List<IOneNoteItem>>(() =>
+        {
+            IsLoading = true;
+            var items = itemsGetter();
+            IsLoading = false;
+            return items.ToList();
+        });
+        Title = $"{Constants.PluginName} - {ResultHelper.GetNicePath(path)}";
+        Name = Resources.Enter;
+        EmptyContent = EmptyContentType.Default(_item);
+        UpdateSearchText(string.Empty, string.Empty);
     }
 
     public HierarchyItemPage(IOneNoteItem item)
-        : this(item.RelativePath, item.Children)
+        : this(item, () => item.Children, item.RelativePath)
     {
-        _item = item;
     }
 
-    public static HierarchyItemPage Root() => new("Notebooks", OneNoteApplication.GetNotebooks());
+    private List<ListItem> Query(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Children.Count == 0 ? ResultHelper.EmptyHierarchy(_item) : ResultHelper.CreateResults(Children, false).ToList();
+        }
 
-    public override IListItem[] GetItems() => _results;
+        // Title search, searches all descendants by title
+        if (query.StartsWith(Constants.Keywords.TitleSearch, StringComparison.Ordinal))
+        {
+            var search = query[Constants.Keywords.TitleSearch.Length..];
+            if (search.Length == 0)
+            {
+                return NoResults(EmptyContentType.SearchByTitle(_item));
+            }
+
+            IsLoading = true;
+            var filtered = ListHelpers.FilterList(Children.Traverse(), search, (q, item) => StringMatcher.FuzzySearch(q, item.Name).Score);
+            IsLoading = false;
+
+            return filtered.Any() ? ResultHelper.CreateResults(filtered, true).ToList() : NoResults(EmptyContentType.NoMatchesFound);
+        }
+
+        // Scoped search, searches all descendants, only pages
+        if (query.StartsWith(Constants.Keywords.ScopedSearch, StringComparison.Ordinal) && _item != null)
+        {
+            var search = query[Constants.Keywords.TitleSearch.Length..];
+            if (search.Length == 0)
+            {
+                return NoResults(EmptyContentType.ScopeSearch(_item));
+            }
+
+            if (!char.IsLetterOrDigit(search[0]))
+            {
+                return NoResults(EmptyContentType.Invalid);
+            }
+
+            IsLoading = true;
+            var results = ResultHelper.CreateResults(OneNoteApplication.FindPages(search, _item), true).ToList();
+            IsLoading = false;
+            return results.Count != 0 ? results : NoResults(EmptyContentType.NoMatchesFound);
+        }
+
+        if (!char.IsLetterOrDigit(query[0]))
+        {
+            return NoResults(EmptyContentType.Invalid);
+        }
+
+        return ListHelpers.FilterList(ResultHelper.CreateResults(Children, false), query).Cast<ListItem>().ToList();
+    }
+
+    public List<ListItem> NoResults(CommandItem emptyContent)
+    {
+        EmptyContent = emptyContent;
+        return [];
+    }
+
+    public override void UpdateSearchText(string oldSearch, string newSearch)
+    {
+        _results = Query(SearchText);
+        RaiseItemsChanged();
+    }
+
+    public override IListItem[] GetItems() => _results.ToArray();
 }

@@ -2,7 +2,7 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Microsoft.CmdPal.Ext.OneNote.Components;
+using Microsoft.CmdPal.Ext.OneNote.Helpers;
 using Microsoft.CmdPal.Ext.OneNote.Properties;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;

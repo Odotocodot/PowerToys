@@ -18,5 +18,9 @@ public class IconProvider
 
     public static IconInfo SyncNotebooks { get; internal set; }
 
+    public static IconInfo InvalidQuery { get; internal set; }
+
+    public static IconInfo Search { get; internal set; }
+
     public static IconInfo GetIcon(IOneNoteItem item) => null;
 }

@@ -2,29 +2,50 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using Microsoft.CmdPal.Ext.OneNote.Commands;
+using Microsoft.CmdPal.Ext.OneNote.Components;
 using Microsoft.CmdPal.Ext.OneNote.Pages;
 using Microsoft.CmdPal.Ext.OneNote.Properties;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using Odotocodot.OneNote.Linq;
 
-namespace Microsoft.CmdPal.Ext.OneNote.Components;
+namespace Microsoft.CmdPal.Ext.OneNote.Helpers;
 
-public static class ResultCreator
+public static class ResultHelper
 {
     private static readonly CompositeFormat LastModified = CompositeFormat.Parse(Resources.LastModified);
     private static readonly string _oldSeparator = OneNoteApplication.RelativePathSeparator.ToString();
 
     public static string GetNicePath(string path) => path.Replace(_oldSeparator, " > ");
 
-    public static IListItem[] CreateResults(IEnumerable<IOneNoteItem> items)
+    public static IEnumerable<ListItem> CreateResults(IEnumerable<IOneNoteItem> items, Action<IOneNoteItem, ListItem> modifications)
     {
-        return items.Select(CreateResult).ToArray();
+        return items.Select(item =>
+        {
+            var result = CreateResult(item);
+            modifications(item, result);
+            return result;
+        });
+    }
+
+    public static IEnumerable<ListItem> CreateResults(IEnumerable<IOneNoteItem> items, bool withPath)
+    {
+        return items.Select(item =>
+        {
+            var result = CreateResult(item);
+            if (withPath)
+            {
+                result.Subtitle = GetNicePath(item.RelativePath);
+            }
+
+            return result;
+        });
     }
 
     private static ListItem CreateResult(IOneNoteItem item)
@@ -65,19 +86,6 @@ public static class ResultCreator
         return result;
     }
 
-    public static IListItem[] GetRecentPageResults(IEnumerable<IOneNoteItem> items)
-    {
-        return items.Select(item =>
-        {
-            var result = CreateResult(item);
-            result.Icon = IconProvider.RecentPage;
-            result.Subtitle = GetNicePath(item.RelativePath);
-
-            // TODO: add last time it was edited to tag maybe
-            return result;
-        }).ToArray();
-    }
-
     // TODO: Cache tags and use icons when applicable
     private static void AddConditionally(this List<Tag> tags, bool condition, string name)
     {
@@ -85,5 +93,14 @@ public static class ResultCreator
         {
             tags.Add(new Tag(name));
         }
+    }
+
+    internal static List<ListItem> EmptyHierarchy(IOneNoteItem parent)
+    {
+        return
+        [
+            new ListItem(new CommandItem("No items in here", result: CommandResult.KeepOpen())),
+            new ListItem(new CommandItem("CreateItem", result: CommandResult.KeepOpen())),
+        ];
     }
 }

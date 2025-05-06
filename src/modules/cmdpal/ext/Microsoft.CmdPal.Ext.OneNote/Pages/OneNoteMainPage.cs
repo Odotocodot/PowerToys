@@ -2,10 +2,10 @@
 // The Microsoft Corporation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Data;
 using System.Linq;
 using Microsoft.CmdPal.Ext.OneNote.Commands;
 using Microsoft.CmdPal.Ext.OneNote.Components;
+using Microsoft.CmdPal.Ext.OneNote.Helpers;
 using Microsoft.CmdPal.Ext.OneNote.Pages;
 using Microsoft.CmdPal.Ext.OneNote.Properties;
 using Microsoft.CommandPalette.Extensions;
@@ -16,7 +16,7 @@ namespace Microsoft.CmdPal.Ext.OneNote;
 
 internal sealed partial class OneNoteMainPage : DynamicListPage
 {
-    private readonly ListItem[] _emptyContent;
+    private readonly ListItem[] _commands;
     private IListItem[] _results;
 
     public OneNoteMainPage()
@@ -24,7 +24,8 @@ internal sealed partial class OneNoteMainPage : DynamicListPage
         Icon = IconProvider.Logo;
         Title = Constants.PluginName;
         PlaceholderText = Resources.SearchOneNotePages;
-        _emptyContent = [
+        EmptyContent = EmptyContentType.Default(null);
+        _commands = [
             new ListItem(HierarchyItemPage.Root())
             {
                 Title = Resources.ViewNotebookExplorer,
@@ -49,43 +50,39 @@ internal sealed partial class OneNoteMainPage : DynamicListPage
                 Icon = IconProvider.SyncNotebooks,
             },
         ];
-        _results = _emptyContent;
+        _results = _commands;
     }
 
-    public override IListItem[] GetItems()
+    public ListItem[] Query(string query)
     {
-        return _results;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return _commands;
+        }
+
+        if (!char.IsLetterOrDigit(query[0]))
+        {
+            return NoResults(EmptyContentType.Invalid);
+        }
+
+        IsLoading = true;
+        var pages = OneNoteApplication.FindPages(query);
+        IsLoading = false;
+
+        return pages.Any() ? ResultHelper.CreateResults(pages, true).ToArray() : NoResults(EmptyContentType.NoMatchesFound);
+    }
+
+    public ListItem[] NoResults(CommandItem emptyContent)
+    {
+        EmptyContent = emptyContent;
+        return [];
     }
 
     public override void UpdateSearchText(string oldSearch, string newSearch)
     {
-        if (oldSearch == newSearch)
-        {
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(newSearch))
-        {
-            UpdateResults(_emptyContent);
-            return;
-        }
-
-        if (!char.IsLetterOrDigit(newSearch[0]))
-        {
-            UpdateResults(_emptyContent);
-            return;
-        }
-
-        var results = OneNoteApplication.FindPages(newSearch)
-            .Select(page => new ListItem() { Title = page.Name })
-            .ToArray();
-
-        UpdateResults(results);
+        _results = Query(SearchText);
+        RaiseItemsChanged();
     }
 
-    public void UpdateResults(IListItem[] results)
-    {
-        _results = results;
-        RaiseItemsChanged(results.Length);
-    }
+    public override IListItem[] GetItems() => _results;
 }

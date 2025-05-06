@@ -4,6 +4,7 @@
 
 using System.Linq;
 using Microsoft.CmdPal.Ext.OneNote.Components;
+using Microsoft.CmdPal.Ext.OneNote.Helpers;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using Odotocodot.OneNote.Linq;
@@ -21,7 +22,13 @@ public partial class RecentItemsPage : ListPage
                                       .OrderByDescending(pg => pg.LastModified)
                                       .Take(count);
 
-        _results = ResultCreator.GetRecentPageResults(pages);
+        _results = ResultHelper.CreateResults(pages, (pg, result) =>
+        {
+            result.Icon = IconProvider.RecentPage;
+            result.Subtitle = ResultHelper.GetNicePath(pg.RelativePath);
+
+            // TODO: add last time it was edited to tag maybe
+        }).ToArray();
     }
 
     public override IListItem[] GetItems() => _results;
