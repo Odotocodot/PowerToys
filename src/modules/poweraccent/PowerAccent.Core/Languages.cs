@@ -325,7 +325,7 @@ namespace PowerAccent.Core
                 LetterKey.VK_H => new[] { "ĥ" },
                 LetterKey.VK_J => new[] { "ĵ" },
                 LetterKey.VK_S => new[] { "ŝ" },
-                LetterKey.VK_U => new[] { "ǔ" },
+                LetterKey.VK_U => new[] { "ŭ" },
                 _ => Array.Empty<string>(),
             };
         }
@@ -677,7 +677,7 @@ namespace PowerAccent.Core
                 LetterKey.VK_O => new string[] { "ο", "ό", "ω", "ώ" },
                 LetterKey.VK_P => new string[] { "π", "φ", "ψ" },
                 LetterKey.VK_R => new string[] { "ρ" },
-                LetterKey.VK_S => new string[] { "σ" },
+                LetterKey.VK_S => new string[] { "σ", "ς" },
                 LetterKey.VK_T => new string[] { "τ", "θ", "ϑ" },
                 LetterKey.VK_U => new string[] { "υ", "ύ" },
                 LetterKey.VK_X => new string[] { "ξ" },
