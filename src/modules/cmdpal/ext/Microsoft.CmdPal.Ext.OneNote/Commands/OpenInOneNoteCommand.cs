@@ -25,7 +25,6 @@ public partial class OpenInOneNoteCommand : InvokableCommand
 
     public override ICommandResult Invoke()
     {
-        _item.OpenInOneNote();
         Invoke(_item);
         return CommandResult.Dismiss();
     }
@@ -38,7 +37,7 @@ public partial class OpenInOneNoteCommand : InvokableCommand
         }
         catch (COMException)
         {
-            // The page, section or even notebook may no longer exist, ignore and do nothing.
+            // The item longer exists, ignore and do nothing.
             return;
         }
 

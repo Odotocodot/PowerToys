@@ -22,5 +22,13 @@ public class IconProvider
 
     public static IconInfo Search { get; internal set; }
 
+    public static IconInfo NewPage { get; internal set; }
+
+    public static IconInfo NewSection { get; internal set; }
+
+    public static IconInfo NewSectionGroup { get; internal set; }
+
+    public static IconInfo NewNotebook { get; internal set; }
+
     public static IconInfo GetIcon(IOneNoteItem item) => null;
 }

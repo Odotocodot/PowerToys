@@ -49,7 +49,7 @@ public partial class HierarchyItemPage : DynamicListPage
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return Children.Count == 0 ? ResultHelper.EmptyHierarchy(_item) : ResultHelper.CreateResults(Children, false).ToList();
+            return Children.Count != 0 ? ResultHelper.CreateResults(Children, false).ToList() : NoResults(EmptyContentType.NoMatchesFound);
         }
 
         // Title search, searches all descendants by title
@@ -83,9 +83,9 @@ public partial class HierarchyItemPage : DynamicListPage
             }
 
             IsLoading = true;
-            var results = ResultHelper.CreateResults(OneNoteApplication.FindPages(search, _item), true).ToList();
+            var scopeResults = ResultHelper.CreateResults(OneNoteApplication.FindPages(search, _item), true).ToList();
             IsLoading = false;
-            return results.Count != 0 ? results : NoResults(EmptyContentType.NoMatchesFound);
+            return scopeResults.Count != 0 ? scopeResults : NoResults(EmptyContentType.NoMatchesFound);
         }
 
         if (!char.IsLetterOrDigit(query[0]))
@@ -93,7 +93,36 @@ public partial class HierarchyItemPage : DynamicListPage
             return NoResults(EmptyContentType.Invalid);
         }
 
-        return ListHelpers.FilterList(ResultHelper.CreateResults(Children, false), query).Cast<ListItem>().ToList();
+        // Search current children
+        var results = ListHelpers.FilterList(ResultHelper.CreateResults(Children, false), query).Cast<ListItem>().ToList();
+
+        if (Children.Any(item => string.Equals(query.Trim(), item.Name, StringComparison.Ordinal)))
+        {
+            return results;
+        }
+
+        if (_item?.IsInRecycleBin() == true)
+        {
+            return results;
+        }
+
+        switch (_item)
+        {
+            // The item that can be created depends on _item i.e. the parent of the Children
+            case null:
+                results.Add(NewOneNoteItemHelper.NewNotebook(query));
+                break;
+            case OneNoteNotebook:
+            case OneNoteSectionGroup:
+                results.Add(NewOneNoteItemHelper.NewSection(query, _item));
+                results.Add(NewOneNoteItemHelper.NewSectionGroup(query, _item));
+                break;
+            case OneNoteSection section when !section.Locked:
+                results.Add(NewOneNoteItemHelper.NewPage(query, section));
+                break;
+        }
+
+        return results;
     }
 
     public List<ListItem> NoResults(CommandItem emptyContent)

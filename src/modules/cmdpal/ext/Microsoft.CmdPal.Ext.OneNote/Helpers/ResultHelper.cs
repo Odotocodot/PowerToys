@@ -21,8 +21,9 @@ public static class ResultHelper
 {
     private static readonly CompositeFormat LastModified = CompositeFormat.Parse(Resources.LastModified);
     private static readonly string _oldSeparator = OneNoteApplication.RelativePathSeparator.ToString();
+    public const string PathSeparator = " > ";
 
-    public static string GetNicePath(string path) => path.Replace(_oldSeparator, " > ");
+    public static string GetNicePath(string path) => path.Replace(_oldSeparator, PathSeparator);
 
     public static IEnumerable<ListItem> CreateResults(IEnumerable<IOneNoteItem> items, Action<IOneNoteItem, ListItem> modifications)
     {
@@ -93,14 +94,5 @@ public static class ResultHelper
         {
             tags.Add(new Tag(name));
         }
-    }
-
-    internal static List<ListItem> EmptyHierarchy(IOneNoteItem parent)
-    {
-        return
-        [
-            new ListItem(new CommandItem("No items in here", result: CommandResult.KeepOpen())),
-            new ListItem(new CommandItem("CreateItem", result: CommandResult.KeepOpen())),
-        ];
     }
 }
